@@ -179,17 +179,8 @@ function doPost(e) {
   try {
     var contents = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var projects = contents.projects || [];
     var currency = contents.currency || "BDT";
-
-    // Group projects by monthly worksheet
-    var grouped = {};
-    for (var i = 0; i < projects.length; i++) {
-      var p = projects[i];
-      var ws = p.worksheet || "General";
-      if (!grouped[ws]) grouped[ws] = [];
-      grouped[ws].push(p);
-    }
+    var action = contents.action || "sync";
 
     var headers = [
       "Company Name", "Clients Name", "Company Type", "Project Type",
@@ -200,7 +191,96 @@ function doPost(e) {
       "Project Status", "Progress %", "Deployment", "Client Phone", "WhatsApp", "Client Email", "Notes"
     ];
 
-    for (var sheetName in grouped) {
+    // Handle explicit single worksheet deletion
+    if (action === "deleteWorksheet" && contents.worksheetName) {
+      var targetSheet = ss.getSheetByName(contents.worksheetName);
+      if (targetSheet) {
+        if (ss.getSheets().length > 1) {
+          ss.deleteSheet(targetSheet);
+        } else {
+          targetSheet.clearContents();
+          targetSheet.setName("General");
+          targetSheet.appendRow(headers);
+        }
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "success",
+          message: "Worksheet " + contents.worksheetName + " deleted successfully."
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "not_found",
+        message: "Worksheet " + contents.worksheetName + " was not found."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Handle full database reset
+    if (action === "resetAll") {
+      var sheets = ss.getSheets();
+      var defaultSheet = sheets[0];
+      defaultSheet.setName("General");
+      defaultSheet.clearContents();
+      defaultSheet.appendRow(headers);
+      var headerRange = defaultSheet.getRange(1, 1, 1, headers.length);
+      headerRange.setBackground("#93cf8c").setFontColor("#090d16").setFontWeight("bold");
+
+      for (var d = sheets.length - 1; d > 0; d--) {
+        ss.deleteSheet(sheets[d]);
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: "Database reset successfully."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Standard sync action
+    var projects = contents.projects || [];
+    var activeWorksheets = contents.activeWorksheets || contents.worksheets || [];
+
+    // Group projects by monthly worksheet
+    var grouped = {};
+    for (var i = 0; i < projects.length; i++) {
+      var p = projects[i];
+      var ws = p.worksheet || "General";
+      if (!grouped[ws]) grouped[ws] = [];
+      grouped[ws].push(p);
+    }
+
+    // Collect all valid target sheets
+    var targetSheets = {};
+    if (Array.isArray(activeWorksheets)) {
+      for (var a = 0; a < activeWorksheets.length; a++) {
+        var wName = String(activeWorksheets[a] || "").trim();
+        if (wName && wName !== "All Worksheets") {
+          targetSheets[wName] = true;
+        }
+      }
+    }
+    for (var g in grouped) {
+      if (g && g !== "All Worksheets") {
+        targetSheets[g] = true;
+      }
+    }
+
+    // Remove any physical sheets in spreadsheet that are NOT in targetSheets (except Template/system)
+    if (Object.keys(targetSheets).length > 0) {
+      var existingSheets = ss.getSheets();
+      for (var k = 0; k < existingSheets.length; k++) {
+        var curSheet = existingSheets[k];
+        var curName = curSheet.getName();
+        if (!curName || curName === "Template" || curName.indexOf("_") === 0) continue;
+        if (!targetSheets[curName]) {
+          if (ss.getSheets().length > 1) {
+            ss.deleteSheet(curSheet);
+          } else {
+            curSheet.clearContents();
+          }
+        }
+      }
+    }
+
+    // Mirror each target sheet
+    for (var sheetName in targetSheets) {
       var sheet = ss.getSheetByName(sheetName);
       if (!sheet) {
         sheet = ss.insertSheet(sheetName);
@@ -212,7 +292,7 @@ function doPost(e) {
       var headerRange = sheet.getRange(1, 1, 1, headers.length);
       headerRange.setBackground("#93cf8c").setFontColor("#090d16").setFontWeight("bold");
 
-      var items = grouped[sheetName];
+      var items = grouped[sheetName] || [];
       for (var j = 0; j < items.length; j++) {
         var item = items[j];
         var isSocial = item.projectType === "social-media-marketing";
@@ -324,12 +404,15 @@ export const fetchProjectsFromGoogleSheets = async (
 
 /**
  * Auto-sync projects to Google Sheets Webhook
- * Sends a clean snapshot partitioned by monthly worksheets
+ * Supports both signatures:
+ *   syncProjectsToGoogleSheets(projects, worksheets, user)
+ *   syncProjectsToGoogleSheets(projects, user)
  */
-export const syncProjectsToGoogleSheets = async (
+export async function syncProjectsToGoogleSheets(
   projects: Project[],
-  user?: AuthUser | null
-): Promise<{ success: boolean; message: string }> => {
+  worksheetsOrUser?: string[] | AuthUser | null,
+  userArg?: AuthUser | null
+): Promise<{ success: boolean; message: string }> {
   const webhookUrl = getEffectiveWebhookUrl();
 
   if (!webhookUrl) {
@@ -339,13 +422,18 @@ export const syncProjectsToGoogleSheets = async (
     };
   }
 
+  const worksheets = Array.isArray(worksheetsOrUser) ? worksheetsOrUser : undefined;
+  const user = Array.isArray(worksheetsOrUser) ? userArg : worksheetsOrUser;
+
   try {
     const payload = {
+      action: 'sync',
       timestamp: new Date().toISOString(),
       currency: 'BDT',
       sheetId: getEffectiveSheetId(user),
       user: user ? user.email : 'Anonymous',
       projectsCount: projects.length,
+      activeWorksheets: worksheets || [],
       projects: projects.map(p => {
         const isSocial = p.projectType === 'social-media-marketing' || p.milestones?.model === '50-50';
         return {
@@ -397,6 +485,88 @@ export const syncProjectsToGoogleSheets = async (
     return {
       success: false,
       message: err?.message || 'Failed to sync with Google Sheets webhook.'
+    };
+  }
+}
+
+/**
+ * Delete a specific worksheet tab permanently from Google Sheets
+ */
+export const deleteWorksheetFromGoogleSheets = async (
+  worksheetName: string,
+  user?: AuthUser | null
+): Promise<{ success: boolean; message: string }> => {
+  const webhookUrl = getEffectiveWebhookUrl();
+  if (!webhookUrl || !worksheetName.trim()) {
+    return { success: false, message: 'Invalid webhook URL or worksheet name.' };
+  }
+
+  try {
+    const payload = {
+      action: 'deleteWorksheet',
+      worksheetName: worksheetName.trim(),
+      sheetId: getEffectiveSheetId(user),
+      timestamp: new Date().toISOString()
+    };
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    return {
+      success: true,
+      message: `Worksheet "${worksheetName}" deleted from Google Sheets.`
+    };
+  } catch (err: any) {
+    console.error('Delete worksheet error:', err);
+    return {
+      success: false,
+      message: err?.message || `Failed to delete worksheet "${worksheetName}".`
+    };
+  }
+};
+
+/**
+ * Reset all sheets and data across the Google Sheets database to clean slate
+ */
+export const resetGoogleSheetsDatabase = async (
+  user?: AuthUser | null
+): Promise<{ success: boolean; message: string }> => {
+  const webhookUrl = getEffectiveWebhookUrl();
+  if (!webhookUrl) {
+    return { success: false, message: 'No Google Sheets Webhook URL configured.' };
+  }
+
+  try {
+    const payload = {
+      action: 'resetAll',
+      sheetId: getEffectiveSheetId(user),
+      timestamp: new Date().toISOString()
+    };
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    return {
+      success: true,
+      message: 'Successfully reset Google Sheets database to a clean state.'
+    };
+  } catch (err: any) {
+    console.error('Reset database error:', err);
+    return {
+      success: false,
+      message: err?.message || 'Failed to reset Google Sheets database.'
     };
   }
 };
