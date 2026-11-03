@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Project, 
   ServiceType, 
@@ -70,6 +70,7 @@ export default function App() {
   });
 
   const [isRefreshingCloud, setIsRefreshingCloud] = useState(false);
+  const isFirstSyncSkippedRef = useRef(false);
 
   // Hydrate state from Central Google Sheets Cloud Database
   const loadCentralCloudData = async () => {
@@ -89,6 +90,11 @@ export default function App() {
         setSyncStatus({
           state: 'synced',
           lastSyncedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      } else if (res.needsDeployment) {
+        setSyncStatus({
+          state: 'error',
+          errorMessage: res.message
         });
       }
     } catch (err) {
@@ -118,6 +124,12 @@ export default function App() {
 
   // Live Auto-Sync to Google Sheets whenever projects are updated
   useEffect(() => {
+    // Prevent accidental initial overwrite on new device/browser boot
+    if (!isFirstSyncSkippedRef.current) {
+      isFirstSyncSkippedRef.current = true;
+      return;
+    }
+
     const webhook = getEffectiveWebhookUrl();
     if (!webhook) {
       setSyncStatus({ state: 'not-configured' });
@@ -606,6 +618,8 @@ export default function App() {
         projects={projects}
         syncStatus={syncStatus}
         onUpdateUser={setAuthUser}
+        onRefreshCloud={loadCentralCloudData}
+        isRefreshingCloud={isRefreshingCloud}
       />
 
     </div>
