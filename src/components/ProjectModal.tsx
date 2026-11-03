@@ -6,7 +6,14 @@ import {
   ProjectStatus, 
   CONFIRMATION_OPTIONS 
 } from '../types/project';
-import { computeMilestones, computeFinancials, formatMoney, getCurrentMonthWorksheet } from '../utils/storage';
+import { 
+  computeMilestones, 
+  computeFinancials, 
+  formatMoney, 
+  getCurrentMonthWorksheet, 
+  getTodayDateString, 
+  formatLocalDate 
+} from '../utils/storage';
 import { 
   X, 
   Calculator, 
@@ -51,7 +58,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   
   // Confirmation (2 clean options: Signed Contract / Proposal Accepted)
   const [confirmation, setConfirmation] = useState<string>('Signed Contract');
-  const [confirmationDate, setConfirmationDate] = useState(new Date().toISOString().split('T')[0]);
+  const [confirmationDate, setConfirmationDate] = useState(getTodayDateString());
   
   // Progress & Status
   const [progressPercent, setProgressPercent] = useState<number>(0);
@@ -68,7 +75,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [clientEmail, setClientEmail] = useState('');
   
   // Dates
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState(getTodayDateString());
   const [targetDeadline, setTargetDeadline] = useState('');
   
   // Worksheet - defaults directly to current active view worksheet
@@ -92,7 +99,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setBudgetEstimated(initialProject.budgetEstimated);
       setBudgetConfirmed(initialProject.budgetConfirmed);
       setConfirmation(initialProject.confirmation === 'Proposal Accepted' ? 'Proposal Accepted' : 'Signed Contract');
-      setConfirmationDate(initialProject.confirmationDate || '');
+      setConfirmationDate(initialProject.confirmationDate ? formatLocalDate(initialProject.confirmationDate) : '');
       setProgressPercent(initialProject.progressPercent ?? 0);
       setProjectStatus(initialProject.projectStatus);
       setDeployment(initialProject.deployment || '');
@@ -103,8 +110,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setIsWhatsappManuallyChanged(!!(initialProject.clientWhatsapp && initialProject.clientWhatsapp !== initialProject.clientPhone));
       setClientEmail(initialProject.clientEmail || '');
       
-      setStartDate(initialProject.startDate || new Date().toISOString().split('T')[0]);
-      setTargetDeadline(initialProject.targetDeadline || '');
+      setStartDate(initialProject.startDate ? formatLocalDate(initialProject.startDate) : getTodayDateString());
+      setTargetDeadline(initialProject.targetDeadline ? formatLocalDate(initialProject.targetDeadline) : '');
       setWorksheet(initialProject.worksheet || effectiveDefaultWorksheet);
       setCustomWorksheetName('');
       setNotes(initialProject.notes || '');
@@ -121,7 +128,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setBudgetEstimated(80000);
       setBudgetConfirmed(75000);
       setConfirmation('Signed Contract');
-      setConfirmationDate(new Date().toISOString().split('T')[0]);
+      setConfirmationDate(getTodayDateString());
       setProgressPercent(0);
       setProjectStatus('Confirmed');
       setDeployment('Local Development');
@@ -130,7 +137,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setClientWhatsapp('');
       setIsWhatsappManuallyChanged(false);
       setClientEmail('');
-      setStartDate(new Date().toISOString().split('T')[0]);
+      setStartDate(getTodayDateString());
       setTargetDeadline('');
       setWorksheet(effectiveDefaultWorksheet);
       setCustomWorksheetName('');
@@ -165,14 +172,14 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       label: isSocialMedia ? '50% Advance Payment' : '40% Advance Payment',
       amount: isSocialMedia ? Math.round(budgetConfirmed * 0.5) : Math.round(budgetConfirmed * 0.4),
       paid: advancePaid,
-      paidDate: advancePaid ? (initialProject?.milestones?.advance40?.paidDate || new Date().toISOString().split('T')[0]) : undefined
+      paidDate: advancePaid ? (initialProject?.milestones?.advance40?.paidDate ? formatLocalDate(initialProject.milestones.advance40.paidDate) : getTodayDateString()) : undefined
     },
     midway30: {
       percent: isSocialMedia ? 0 : 30,
       label: isSocialMedia ? 'N/A (50-50 Model)' : '30% Milestone Payment (at 70% Work)',
       amount: isSocialMedia ? 0 : Math.round(budgetConfirmed * 0.3),
       paid: isSocialMedia ? false : midwayPaid,
-      paidDate: midwayPaid ? (initialProject?.milestones?.midway30?.paidDate || new Date().toISOString().split('T')[0]) : undefined
+      paidDate: midwayPaid ? (initialProject?.milestones?.midway30?.paidDate ? formatLocalDate(initialProject.milestones.midway30.paidDate) : getTodayDateString()) : undefined
     },
     handover30: {
       percent: isSocialMedia ? 50 : 30,
@@ -181,7 +188,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         ? Math.max(0, budgetConfirmed - Math.round(budgetConfirmed * 0.5))
         : budgetConfirmed - Math.round(budgetConfirmed * 0.4) - Math.round(budgetConfirmed * 0.3),
       paid: handoverPaid,
-      paidDate: handoverPaid ? (initialProject?.milestones?.handover30?.paidDate || new Date().toISOString().split('T')[0]) : undefined
+      paidDate: handoverPaid ? (initialProject?.milestones?.handover30?.paidDate ? formatLocalDate(initialProject.milestones.handover30.paidDate) : getTodayDateString()) : undefined
     },
     model: isSocialMedia ? '50-50' : '40-30-30'
   }, projectType);
@@ -205,7 +212,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       budgetEstimated: Number(budgetEstimated) || 0,
       budgetConfirmed: Number(budgetConfirmed) || 0,
       confirmation,
-      confirmationDate,
+      confirmationDate: formatLocalDate(confirmationDate) || formatLocalDate(startDate) || getTodayDateString(),
       progressPercent: Number(progressPercent) || 0,
       milestones: currentMilestones,
       totalPaid,
@@ -216,8 +223,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       clientPhone: clientPhone.trim(),
       clientWhatsapp: clientWhatsapp.trim() || clientPhone.trim(),
       clientEmail: clientEmail.trim(),
-      startDate,
-      targetDeadline,
+      startDate: formatLocalDate(startDate) || getTodayDateString(),
+      targetDeadline: formatLocalDate(targetDeadline),
       worksheet: resolvedWorksheet,
       notes: notes.trim(),
       createdAt: initialProject ? initialProject.createdAt : new Date().toISOString(),
