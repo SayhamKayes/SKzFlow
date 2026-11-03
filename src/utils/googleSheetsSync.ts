@@ -9,30 +9,39 @@ export interface SyncStatusInfo {
   errorMessage?: string;
 }
 
+export const DEFAULT_CENTRAL_WEBHOOK_URL =
+  'https://script.google.com/macros/s/AKfycbymyyzJ94YTwG5tfvxUt9-Mcgp8gdpja49_1agxdgb7od3Ptsl72TPoo1cIrSVslOU/exec';
+
+export const DEFAULT_CENTRAL_SHEET_ID = '1RNZnmuhohsjVy1kGW3TrJWNv2j9XfO53p42FIVk9TNU';
+
 /**
  * Returns the effective Google Sheets webhook URL
- * Checks import.meta.env first, then falls back to localStorage
+ * Checks custom user setting first, then env, then standard central database fallback
  */
 export const getEffectiveWebhookUrl = (): string => {
+  const custom = loadWebhookUrl().trim();
+  if (custom && custom.startsWith('https://script.google.com/')) {
+    return custom;
+  }
   const envUrl = (import.meta as any).env?.VITE_GOOGLE_SHEETS_WEBHOOK_URL;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0 && !envUrl.includes('YOUR_DEPLOYED_SCRIPT_ID')) {
     return envUrl.trim();
   }
-  return loadWebhookUrl().trim();
+  return DEFAULT_CENTRAL_WEBHOOK_URL;
 };
 
 /**
  * Returns the effective Google Sheet ID
  */
 export const getEffectiveSheetId = (user?: AuthUser | null): string => {
-  if (user?.connectedSpreadsheetId) {
+  if (user?.connectedSpreadsheetId && user.connectedSpreadsheetId.trim().length > 0) {
     return user.connectedSpreadsheetId.trim();
   }
   const envId = (import.meta as any).env?.VITE_GOOGLE_SHEET_ID;
   if (envId && typeof envId === 'string' && envId.trim().length > 0 && !envId.includes('your_google_sheet_id_here')) {
     return envId.trim();
   }
-  return '';
+  return DEFAULT_CENTRAL_SHEET_ID;
 };
 
 /**
@@ -256,7 +265,7 @@ function doPost(e) {
  */
 export const fetchProjectsFromGoogleSheets = async (
   user?: AuthUser | null
-): Promise<{ success: boolean; projects?: Project[]; worksheets?: string[]; message?: string }> => {
+): Promise<{ success: boolean; projects?: Project[]; worksheets?: string[]; message?: string; needsDeployment?: boolean }> => {
   const webhookUrl = getEffectiveWebhookUrl();
   if (!webhookUrl) {
     return {
@@ -273,11 +282,24 @@ export const fetchProjectsFromGoogleSheets = async (
       }
     });
 
-    if (!res.ok) {
-      throw new Error(`Google Sheets responded with HTTP status ${res.status}`);
+    const text = await res.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (text.includes('doGet') || text.includes('ত্রুটি') || text.includes('Script function not found')) {
+        return {
+          success: false,
+          needsDeployment: true,
+          message: 'Google Apps Script requires doGet deployment. Please update and deploy a New Version in Apps Script.'
+        };
+      }
+      return {
+        success: false,
+        message: 'Non-JSON response received from Google Sheets webhook.'
+      };
     }
 
-    const data = await res.json();
     if (data && data.status === 'success' && Array.isArray(data.projects)) {
       return {
         success: true,
