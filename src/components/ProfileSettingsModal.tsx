@@ -32,10 +32,12 @@ interface ProfileSettingsModalProps {
   authUser: AuthUser | null;
   onSignOut: () => void;
   projects: Project[];
+  worksheets?: string[];
   syncStatus?: SyncStatusInfo;
   onUpdateUser: (updatedUser: AuthUser) => void;
   onRefreshCloud?: () => Promise<void> | void;
   isRefreshingCloud?: boolean;
+  onResetDatabase?: () => Promise<void> | void;
 }
 
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
@@ -44,10 +46,12 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   authUser,
   onSignOut,
   projects,
+  worksheets,
   syncStatus,
   onUpdateUser,
   onRefreshCloud,
-  isRefreshingCloud = false
+  isRefreshingCloud = false,
+  onResetDatabase
 }) => {
   if (!isOpen || !authUser) return null;
 
@@ -57,6 +61,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   const [customWebhook, setCustomWebhook] = useState(loadWebhookUrl());
   const [isSavingCustom, setIsSavingCustom] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
   const effectiveSheetId = customSheetId.trim() || getEffectiveSheetId(authUser);
@@ -98,12 +103,30 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
       if (onRefreshCloud) {
         await onRefreshCloud();
       }
-      const res = await syncProjectsToGoogleSheets(projects, authUser);
+      const res = await syncProjectsToGoogleSheets(projects, worksheets, authUser);
       setSyncFeedback(res.message);
     } catch (err: any) {
       setSyncFeedback(err?.message || 'Sync failed.');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleResetGoogleSheets = async () => {
+    if (!window.confirm('Are you sure you want to completely RESET the Google Sheets database? This will clear all data across sheets.')) {
+      return;
+    }
+    setIsResetting(true);
+    setSyncFeedback(null);
+    try {
+      if (onResetDatabase) {
+        await onResetDatabase();
+      }
+      setSyncFeedback('Google Sheets database reset to clean state.');
+    } catch (err: any) {
+      setSyncFeedback(err?.message || 'Failed to reset database.');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -316,6 +339,22 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                     {isSavingCustom ? 'Saved!' : 'Save Settings'}
                   </button>
                 </div>
+
+                {onResetDatabase && (
+                  <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">
+                      Wipe all cloud worksheets & start clean:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleResetGoogleSheets}
+                      disabled={isResetting || isSyncing}
+                      className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition cursor-pointer disabled:opacity-50"
+                    >
+                      {isResetting ? 'Resetting...' : 'Reset Cloud Database'}
+                    </button>
+                  </div>
+                )}
 
                 {syncFeedback && (
                   <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] text-emerald-300 font-mono">
