@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 transition cursor-pointer shadow-xs"
             title="Worksheets, Date Ranges & Analytics"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />
             <span>Filter & Analytics</span>
             {activeWorksheet && activeWorksheet !== 'All Worksheets' && (
               <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-mono">
