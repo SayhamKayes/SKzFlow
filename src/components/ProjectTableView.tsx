@@ -162,6 +162,9 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
                   {worksheets.map(ws => (
                     <option key={ws} value={ws}>{ws}</option>
                   ))}
+                  {activeWorksheet && !worksheets.includes(activeWorksheet) && (
+                    <option key={activeWorksheet} value={activeWorksheet}>{activeWorksheet}</option>
+                  )}
                 </select>
 
                 {activeWorksheet !== 'All Worksheets' && onDeleteWorksheet && (
