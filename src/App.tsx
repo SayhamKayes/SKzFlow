@@ -21,6 +21,8 @@ import {
   getEffectiveWebhookUrl, 
   syncProjectsToGoogleSheets, 
   fetchProjectsFromGoogleSheets,
+  deleteWorksheetFromGoogleSheets,
+  resetGoogleSheetsDatabase,
   SyncStatusInfo 
 } from './utils/googleSheetsSync';
 import { LoginScreen } from './components/LoginScreen';
@@ -70,47 +72,57 @@ export default function App() {
   });
 
   const [isRefreshingCloud, setIsRefreshingCloud] = useState(false);
-  const isFirstSyncSkippedRef = useRef(false);
+  const hasHydratedCloudRef = useRef<boolean>(false);
+  const lastSyncedSnapshotRef = useRef<string>('');
 
   // Hydrate state from Central Google Sheets Cloud Database
   const loadCentralCloudData = async () => {
     const webhook = getEffectiveWebhookUrl();
-    if (!webhook) return;
+    if (!webhook) {
+      hasHydratedCloudRef.current = true;
+      return;
+    }
 
     setIsRefreshingCloud(true);
     try {
       const res = await fetchProjectsFromGoogleSheets(authUser);
-      if (res.success && res.projects && res.projects.length > 0) {
+      if (res.success && Array.isArray(res.projects)) {
         setProjects(res.projects);
         saveProjects(res.projects);
+        const effectiveWs = res.worksheets && res.worksheets.length > 0 ? res.worksheets : worksheets;
         if (res.worksheets && res.worksheets.length > 0) {
           setWorksheets(res.worksheets);
           saveWorksheets(res.worksheets);
         }
+        lastSyncedSnapshotRef.current = JSON.stringify({
+          projects: res.projects,
+          worksheets: effectiveWs
+        });
+        hasHydratedCloudRef.current = true;
         setSyncStatus({
           state: 'synced',
           lastSyncedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
       } else if (res.needsDeployment) {
+        hasHydratedCloudRef.current = true;
         setSyncStatus({
           state: 'error',
           errorMessage: res.message
         });
+      } else {
+        hasHydratedCloudRef.current = true;
       }
     } catch (err) {
       console.warn('Central database hydration notice:', err);
+      hasHydratedCloudRef.current = true;
     } finally {
       setIsRefreshingCloud(false);
     }
   };
 
-  // Pull latest records on mount & whenever switching back to this browser window
+  // Pull latest records on mount or when user session changes
   useEffect(() => {
     loadCentralCloudData();
-
-    const onFocus = () => loadCentralCloudData();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
   }, [authUser]);
 
   // Sync state to localStorage
@@ -122,11 +134,17 @@ export default function App() {
     saveWorksheets(worksheets);
   }, [worksheets]);
 
-  // Live Auto-Sync to Google Sheets whenever projects are updated
+  // Live Auto-Sync to Google Sheets ONLY when user actively modifies data locally
   useEffect(() => {
-    // Prevent accidental initial overwrite on new device/browser boot
-    if (!isFirstSyncSkippedRef.current) {
-      isFirstSyncSkippedRef.current = true;
+    // Guard against premature overwrite before initial cloud fetch completes
+    if (!hasHydratedCloudRef.current) {
+      return;
+    }
+
+    const currentSnapshot = JSON.stringify({ projects, worksheets });
+
+    // Skip redundant writes if data is identical to cloud snapshot
+    if (currentSnapshot === lastSyncedSnapshotRef.current) {
       return;
     }
 
@@ -138,8 +156,9 @@ export default function App() {
 
     setSyncStatus(prev => ({ ...prev, state: 'syncing' }));
     const timer = setTimeout(async () => {
-      const res = await syncProjectsToGoogleSheets(projects, authUser);
+      const res = await syncProjectsToGoogleSheets(projects, worksheets, authUser);
       if (res.success) {
+        lastSyncedSnapshotRef.current = currentSnapshot;
         setSyncStatus({
           state: 'synced',
           lastSyncedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -150,10 +169,10 @@ export default function App() {
           errorMessage: res.message
         });
       }
-    }, 1000);
+    }, 1500);
 
     return () => clearTimeout(timer);
-  }, [projects, authUser]);
+  }, [projects, worksheets, authUser]);
 
   const handleSignOut = () => {
     clearAuthUser();
@@ -188,23 +207,56 @@ export default function App() {
     }
   };
 
-  const handleDeleteWorksheet = (nameToDelete: string) => {
+  const handleDeleteWorksheet = async (nameToDelete: string) => {
     if (nameToDelete === 'All Worksheets') return;
     const updatedWorksheets = worksheets.filter(ws => ws !== nameToDelete);
     setWorksheets(updatedWorksheets);
 
-    // Safely preserve and reassign projects from the deleted worksheet to another worksheet
-    const fallbackWorksheet = updatedWorksheets.find(ws => ws !== 'All Worksheets') || getCurrentMonthWorksheet();
-    setProjects(prev => prev.map(p => {
-      if (p.worksheet === nameToDelete) {
-        return { ...p, worksheet: fallbackWorksheet, updatedAt: new Date().toISOString() };
-      }
-      return p;
-    }));
+    // Completely remove records belonging to deleted worksheet so they don't reappear
+    const remainingProjects = projects.filter(p => p.worksheet !== nameToDelete);
+    setProjects(remainingProjects);
+    saveProjects(remainingProjects);
+    saveWorksheets(updatedWorksheets);
 
+    const fallbackWorksheet = updatedWorksheets.find(ws => ws !== 'All Worksheets') || getCurrentMonthWorksheet();
     if (selectedWorksheet === nameToDelete) {
       setSelectedWorksheet(fallbackWorksheet);
     }
+
+    // Direct deletion from Google Sheets central database
+    setSyncStatus(prev => ({ ...prev, state: 'syncing' }));
+    await deleteWorksheetFromGoogleSheets(nameToDelete, authUser);
+    const syncRes = await syncProjectsToGoogleSheets(remainingProjects, updatedWorksheets, authUser);
+    lastSyncedSnapshotRef.current = JSON.stringify({
+      projects: remainingProjects,
+      worksheets: updatedWorksheets
+    });
+    setSyncStatus({
+      state: syncRes.success ? 'synced' : 'error',
+      lastSyncedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      errorMessage: syncRes.success ? undefined : syncRes.message
+    });
+  };
+
+  const handleResetDatabase = async () => {
+    setSyncStatus(prev => ({ ...prev, state: 'syncing' }));
+    const res = await resetGoogleSheetsDatabase(authUser);
+    const currentMonth = getCurrentMonthWorksheet();
+    const cleanWorksheets = ['All Worksheets', currentMonth];
+    setProjects([]);
+    setWorksheets(cleanWorksheets);
+    saveProjects([]);
+    saveWorksheets(cleanWorksheets);
+    setSelectedWorksheet(currentMonth);
+    lastSyncedSnapshotRef.current = JSON.stringify({
+      projects: [],
+      worksheets: cleanWorksheets
+    });
+    setSyncStatus({
+      state: res.success ? 'synced' : 'error',
+      lastSyncedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      errorMessage: res.success ? undefined : res.message
+    });
   };
 
   // Check if project matches date range filter
@@ -616,10 +668,12 @@ export default function App() {
         authUser={authUser}
         onSignOut={handleSignOut}
         projects={projects}
+        worksheets={worksheets}
         syncStatus={syncStatus}
         onUpdateUser={setAuthUser}
         onRefreshCloud={loadCentralCloudData}
         isRefreshingCloud={isRefreshingCloud}
+        onResetDatabase={handleResetDatabase}
       />
 
     </div>
