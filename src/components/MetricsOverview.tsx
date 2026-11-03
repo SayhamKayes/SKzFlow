@@ -28,9 +28,9 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({
     return acc + (p.milestones.advance40.paid ? p.milestones.advance40.amount : 0);
   }, 0);
 
-  // Projects pending milestone 2 payment (at 70%+ work)
+  // Projects pending milestone 2 payment (at 70%+ work for standard 40-30-30 projects)
   const pendingMilestone2 = projects.filter(
-    p => p.progressPercent >= 70 && !p.milestones.midway30.paid
+    p => p.projectType !== 'social-media-marketing' && p.milestones?.model !== '50-50' && p.progressPercent >= 70 && !p.milestones.midway30.paid
   );
 
   return (
