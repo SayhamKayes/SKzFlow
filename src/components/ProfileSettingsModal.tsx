@@ -159,7 +159,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
           {/* Cross-Device Login Credentials */}
           <div className="bg-slate-850 p-4 rounded-xl border border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center">
                 <KeyRound className="w-4 h-4 mr-1.5" />
                 Cross-Device Login Credentials
               </span>
