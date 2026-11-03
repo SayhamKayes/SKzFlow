@@ -13,7 +13,8 @@ import {
 import { 
   getEffectiveWebhookUrl, 
   getEffectiveSheetId, 
-  syncProjectsToGoogleSheets 
+  syncProjectsToGoogleSheets,
+  APPS_SCRIPT_MASTER_CODE
 } from '../utils/googleSheetsSync';
 import { 
   X, 
@@ -115,93 +116,8 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
     }
   };
 
-  // Google Apps Script code that creates/manages dedicated monthly tabs
-  const appsScriptCode = `function doPost(e) {
-  try {
-    var contents = JSON.parse(e.postData.contents);
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var projects = contents.projects || [];
-    var currency = contents.currency || "BDT";
-    
-    // Group projects by monthly worksheet
-    var grouped = {};
-    for (var i = 0; i < projects.length; i++) {
-      var p = projects[i];
-      var ws = p.worksheet || "General";
-      if (!grouped[ws]) grouped[ws] = [];
-      grouped[ws].push(p);
-    }
-    
-    var headers = [
-      "Company Name", "Clients Name", "Company Type", "Project Type",
-      "Start Date", "Target Deadline", "Worksheet",
-      "Budget Estimated (" + currency + ")", "Budget Confirmed (" + currency + ")",
-      "Confirmation", "40% Advance", "30% (at 70%)", "30% Handover",
-      "Total Paid (" + currency + ")", "Due (" + currency + ")",
-      "Project Status", "Progress %", "Deployment", "Client Phone", "WhatsApp", "Client Email"
-    ];
-    
-    // Process each worksheet tab
-    for (var sheetName in grouped) {
-      var sheet = ss.getSheetByName(sheetName);
-      if (!sheet) {
-        sheet = ss.insertSheet(sheetName);
-      }
-      
-      // Clear existing content to mirror latest records accurately
-      sheet.clearContents();
-      
-      // Add and format headers
-      sheet.appendRow(headers);
-      var headerRange = sheet.getRange(1, 1, 1, headers.length);
-      headerRange.setBackground("#93cf8c").setFontColor("#090d16").setFontWeight("bold");
-      
-      // Add project rows
-      var items = grouped[sheetName];
-      for (var j = 0; j < items.length; j++) {
-        var item = items[j];
-        var advStatus = item.advancePaid ? "PAID (৳" + item.advance40.toLocaleString() + ")" : "DUE (৳" + item.advance40.toLocaleString() + ")";
-        var midStatus = item.midwayPaid ? "PAID (৳" + item.midway30.toLocaleString() + ")" : "DUE (৳" + item.midway30.toLocaleString() + ")";
-        var endStatus = item.handoverPaid ? "PAID (৳" + item.handover30.toLocaleString() + ")" : "DUE (৳" + item.handover30.toLocaleString() + ")";
-        
-        sheet.appendRow([
-          item.companyName,
-          item.clientsName,
-          item.companyType,
-          item.projectType,
-          item.startDate || "",
-          item.targetDeadline || "",
-          sheetName,
-          item.budgetEstimated,
-          item.budgetConfirmed,
-          item.confirmation,
-          advStatus,
-          midStatus,
-          endStatus,
-          item.totalPaid,
-          item.dueAmount,
-          item.projectStatus,
-          item.progressPercent + "%",
-          item.deployment || "",
-          item.clientPhone || "",
-          item.clientWhatsapp || "",
-          item.clientEmail || ""
-        ]);
-      }
-      
-      // Auto-resize columns
-      for (var c = 1; c <= headers.length; c++) {
-        sheet.autoResizeColumn(c);
-      }
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", count: projects.length }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}`;
+  // Google Apps Script code that creates/manages dedicated monthly tabs and provides GET/POST API
+  const appsScriptCode = APPS_SCRIPT_MASTER_CODE;
 
   const handleCopyScript = async () => {
     try {
@@ -377,7 +293,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
               {/* Webhook and Sheet Credentials Configuration */}
               <div className="bg-slate-850 p-4 rounded-xl border border-slate-800 space-y-4">
                 <div className="flex items-center space-x-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-                  <Settings className="w-4 h-4 text-amber-400" />
+                  <Settings className="w-4 h-4 text-emerald-400" />
                   <span>Google Sheets Connection Credentials</span>
                 </div>
 
@@ -553,7 +469,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
                     <div key={ws} className="bg-slate-850 p-3.5 rounded-xl border border-slate-800 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-white text-xs flex items-center">
-                          <FileSpreadsheet className="w-3.5 h-3.5 mr-1 text-amber-400" />
+                          <FileSpreadsheet className="w-3.5 h-3.5 mr-1 text-emerald-400" />
                           {ws}
                         </span>
                         <span className="text-[11px] font-mono text-emerald-400 font-bold">
