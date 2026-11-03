@@ -20,6 +20,7 @@ import {
 import { 
   getEffectiveWebhookUrl, 
   syncProjectsToGoogleSheets, 
+  fetchProjectsFromGoogleSheets,
   SyncStatusInfo 
 } from './utils/googleSheetsSync';
 import { LoginScreen } from './components/LoginScreen';
@@ -67,6 +68,44 @@ export default function App() {
     const webhook = getEffectiveWebhookUrl();
     return { state: webhook ? 'synced' : 'not-configured' };
   });
+
+  const [isRefreshingCloud, setIsRefreshingCloud] = useState(false);
+
+  // Hydrate state from Central Google Sheets Cloud Database
+  const loadCentralCloudData = async () => {
+    const webhook = getEffectiveWebhookUrl();
+    if (!webhook) return;
+
+    setIsRefreshingCloud(true);
+    try {
+      const res = await fetchProjectsFromGoogleSheets(authUser);
+      if (res.success && res.projects && res.projects.length > 0) {
+        setProjects(res.projects);
+        saveProjects(res.projects);
+        if (res.worksheets && res.worksheets.length > 0) {
+          setWorksheets(res.worksheets);
+          saveWorksheets(res.worksheets);
+        }
+        setSyncStatus({
+          state: 'synced',
+          lastSyncedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      }
+    } catch (err) {
+      console.warn('Central database hydration notice:', err);
+    } finally {
+      setIsRefreshingCloud(false);
+    }
+  };
+
+  // Pull latest records on mount & whenever switching back to this browser window
+  useEffect(() => {
+    loadCentralCloudData();
+
+    const onFocus = () => loadCentralCloudData();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [authUser]);
 
   // Sync state to localStorage
   useEffect(() => {
@@ -134,6 +173,25 @@ export default function App() {
 
     if (selectedWorksheet === oldName) {
       setSelectedWorksheet(newName);
+    }
+  };
+
+  const handleDeleteWorksheet = (nameToDelete: string) => {
+    if (nameToDelete === 'All Worksheets') return;
+    const updatedWorksheets = worksheets.filter(ws => ws !== nameToDelete);
+    setWorksheets(updatedWorksheets);
+
+    // Safely preserve and reassign projects from the deleted worksheet to another worksheet
+    const fallbackWorksheet = updatedWorksheets.find(ws => ws !== 'All Worksheets') || getCurrentMonthWorksheet();
+    setProjects(prev => prev.map(p => {
+      if (p.worksheet === nameToDelete) {
+        return { ...p, worksheet: fallbackWorksheet, updatedAt: new Date().toISOString() };
+      }
+      return p;
+    }));
+
+    if (selectedWorksheet === nameToDelete) {
+      setSelectedWorksheet(fallbackWorksheet);
     }
   };
 
@@ -434,6 +492,9 @@ export default function App() {
             worksheets={worksheets}
             onSelectWorksheet={setSelectedWorksheet}
             onAddWorksheet={handleAddWorksheet}
+            onRefreshCloud={loadCentralCloudData}
+            isRefreshingCloud={isRefreshingCloud}
+            onDeleteWorksheet={handleDeleteWorksheet}
             onOpenNewProject={() => {
               setEditingProject(null);
               setIsModalOpen(true);
@@ -512,6 +573,7 @@ export default function App() {
         selectedWorksheet={selectedWorksheet}
         onSelectWorksheet={setSelectedWorksheet}
         onRenameWorksheet={handleRenameWorksheet}
+        onDeleteWorksheet={handleDeleteWorksheet}
         dateRange={dateRange}
         onSelectDateRange={setDateRange}
         customStartDate={customStartDate}
