@@ -80,7 +80,7 @@ function doGet(e) {
         var projectType = String(row[3] || "web-app").toLowerCase().replace(/\\s+/g, '-').trim();
         var startDate = row[4] instanceof Date ? row[4].toISOString().split('T')[0] : String(row[4] || "").trim();
         var targetDeadline = row[5] instanceof Date ? row[5].toISOString().split('T')[0] : String(row[5] || "").trim();
-        var ws = String(row[6] || sheetName).trim();
+        var ws = sheetName;
         var budgetEstimated = Number(row[7]) || 0;
         var budgetConfirmed = Number(row[8]) || 0;
         var confirmation = String(row[9] || "Signed Contract").trim();
