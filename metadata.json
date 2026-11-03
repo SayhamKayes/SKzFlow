@@ -1,0 +1,6 @@
+{
+  "name": "ProjectFlow - Client & Project Hub",
+  "description": "Professional project management and billing tracker with Google Sheets integration for web, AI, SaaS, mobile, and digital marketing agencies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
