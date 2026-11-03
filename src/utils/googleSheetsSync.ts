@@ -381,11 +381,59 @@ export const fetchProjectsFromGoogleSheets = async (
     }
 
     if (data && data.status === 'success' && Array.isArray(data.projects)) {
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+
+      // Normalize project records and sanitize worksheet / progress fields
+      const sanitizedProjects: Project[] = data.projects.map((p: any) => {
+        let ws = String(p.worksheet || '').trim();
+
+        // Convert auto-formatted Google Sheets Date strings (e.g. "Thu Oct 01 2026...") back to "Month Year"
+        const dObj = new Date(ws);
+        if (!isNaN(dObj.getTime()) && (ws.includes('GMT') || ws.includes('T') || ws.length > 20)) {
+          ws = `${monthNames[dObj.getMonth()]} ${dObj.getFullYear()}`;
+        }
+
+        // Convert percentage decimals (e.g. 0.5) to integer percentages (e.g. 50)
+        let progress = Number(p.progressPercent) || 0;
+        if (progress > 0 && progress <= 1) {
+          progress = Math.round(progress * 100);
+        }
+
+        return {
+          ...p,
+          worksheet: ws || 'General',
+          progressPercent: progress,
+        };
+      });
+
+      // Normalize worksheet tab names
+      const rawWorksheets: string[] = Array.isArray(data.worksheets) ? data.worksheets : [];
+      const cleanedWorksheets = rawWorksheets
+        .map(w => {
+          let str = String(w || '').trim();
+          const d = new Date(str);
+          if (!isNaN(d.getTime()) && (str.includes('GMT') || str.includes('T') || str.length > 20)) {
+            return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+          }
+          return str;
+        })
+        .filter(w => Boolean(w) && w !== 'Template' && !w.startsWith('_'));
+
+      // Also ensure all worksheets present in loaded projects are listed
+      sanitizedProjects.forEach(p => {
+        if (p.worksheet && !cleanedWorksheets.includes(p.worksheet)) {
+          cleanedWorksheets.push(p.worksheet);
+        }
+      });
+
       return {
         success: true,
-        projects: data.projects,
-        worksheets: Array.isArray(data.worksheets) && data.worksheets.length > 0 ? data.worksheets : undefined,
-        message: `Successfully loaded ${data.projects.length} project records from Google Sheets database.`
+        projects: sanitizedProjects,
+        worksheets: cleanedWorksheets.length > 0 ? cleanedWorksheets : undefined,
+        message: `Successfully loaded ${sanitizedProjects.length} project records from Google Sheets database.`
       };
     }
 
