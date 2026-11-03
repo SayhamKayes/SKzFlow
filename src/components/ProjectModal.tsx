@@ -147,30 +147,35 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     setIsWhatsappManuallyChanged(true);
   };
 
-  // Auto-calculated milestone values based on current budgetConfirmed
+  const isSocialMedia = projectType === 'social-media-marketing';
+
+  // Auto-calculated milestone values based on current budgetConfirmed & service category
   const currentMilestones = computeMilestones(budgetConfirmed, {
     advance40: {
-      percent: 40,
-      label: '40% Advance Payment',
-      amount: Math.round(budgetConfirmed * 0.4),
+      percent: isSocialMedia ? 50 : 40,
+      label: isSocialMedia ? '50% Advance Payment' : '40% Advance Payment',
+      amount: isSocialMedia ? Math.round(budgetConfirmed * 0.5) : Math.round(budgetConfirmed * 0.4),
       paid: advancePaid,
       paidDate: advancePaid ? (initialProject?.milestones?.advance40?.paidDate || new Date().toISOString().split('T')[0]) : undefined
     },
     midway30: {
-      percent: 30,
-      label: '30% Milestone Payment (at 70% Work)',
-      amount: Math.round(budgetConfirmed * 0.3),
-      paid: midwayPaid,
+      percent: isSocialMedia ? 0 : 30,
+      label: isSocialMedia ? 'N/A (50-50 Model)' : '30% Milestone Payment (at 70% Work)',
+      amount: isSocialMedia ? 0 : Math.round(budgetConfirmed * 0.3),
+      paid: isSocialMedia ? false : midwayPaid,
       paidDate: midwayPaid ? (initialProject?.milestones?.midway30?.paidDate || new Date().toISOString().split('T')[0]) : undefined
     },
     handover30: {
-      percent: 30,
-      label: '30% Final Payment (Handover)',
-      amount: budgetConfirmed - Math.round(budgetConfirmed * 0.4) - Math.round(budgetConfirmed * 0.3),
+      percent: isSocialMedia ? 50 : 30,
+      label: isSocialMedia ? '50% Month-End Payment' : '30% Final Payment (Handover)',
+      amount: isSocialMedia
+        ? Math.max(0, budgetConfirmed - Math.round(budgetConfirmed * 0.5))
+        : budgetConfirmed - Math.round(budgetConfirmed * 0.4) - Math.round(budgetConfirmed * 0.3),
       paid: handoverPaid,
       paidDate: handoverPaid ? (initialProject?.milestones?.handover30?.paidDate || new Date().toISOString().split('T')[0]) : undefined
-    }
-  });
+    },
+    model: isSocialMedia ? '50-50' : '40-30-30'
+  }, projectType);
 
   const { totalPaid, dueAmount } = computeFinancials(budgetConfirmed, currentMilestones);
 
@@ -498,90 +503,146 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               </div>
             </div>
 
-            {/* The 3 Automatic Milestone Breakdown Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
-              
-              {/* Milestone 1: 40% Advance */}
-              <div className={`p-2.5 rounded-lg border transition ${
-                advancePaid 
-                  ? 'bg-emerald-950/40 border-emerald-700' 
-                  : 'bg-slate-800 border-slate-700'
-              }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold text-slate-200">
-                    1. 40% Advance
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={advancePaid}
-                    onChange={(e) => setAdvancePaid(e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
-                    id="adv-check"
-                  />
+            {/* Automatic Milestone Breakdown Cards (50-50 for Social Media, 40-30-30 for others) */}
+            {isSocialMedia ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
+                {/* Milestone 1: 50% Advance */}
+                <div className={`p-2.5 rounded-lg border transition ${
+                  advancePaid 
+                    ? 'bg-emerald-950/40 border-emerald-700' 
+                    : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-slate-200">
+                      1. 50% Advance (Kickoff)
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={advancePaid}
+                      onChange={(e) => setAdvancePaid(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
+                      id="adv-check"
+                    />
+                  </div>
+                  <div className="text-sm font-bold font-mono text-emerald-400">
+                    {formatMoney(currentMilestones.advance40.amount)}
+                  </div>
+                  <label htmlFor="adv-check" className="text-[10px] text-slate-400 cursor-pointer block mt-1">
+                    {advancePaid ? '✓ Advance Received' : '○ Kickoff Due'}
+                  </label>
                 </div>
-                <div className="text-sm font-bold font-mono text-emerald-400">
-                  {formatMoney(currentMilestones.advance40.amount)}
-                </div>
-                <label htmlFor="adv-check" className="text-[10px] text-slate-400 cursor-pointer block mt-1">
-                  {advancePaid ? '✓ Advance Received' : '○ Kickoff Due'}
-                </label>
-              </div>
 
-              {/* Milestone 2: 30% at 70% Progress */}
-              <div className={`p-2.5 rounded-lg border transition ${
-                midwayPaid 
-                  ? 'bg-emerald-950/40 border-emerald-700' 
-                  : progressPercent >= 70
-                  ? 'bg-rose-950/40 border-rose-700'
-                  : 'bg-slate-800 border-slate-700'
-              }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold text-slate-200">
-                    2. 30% (70% Work)
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={midwayPaid}
-                    onChange={(e) => setMidwayPaid(e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
-                    id="mid-check"
-                  />
+                {/* Milestone 2: 50% Month-End */}
+                <div className={`p-2.5 rounded-lg border transition ${
+                  handoverPaid 
+                    ? 'bg-emerald-950/40 border-emerald-700' 
+                    : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-slate-200">
+                      2. 50% Month-End Retainer
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={handoverPaid}
+                      onChange={(e) => setHandoverPaid(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
+                      id="han-check"
+                    />
+                  </div>
+                  <div className="text-sm font-bold font-mono text-blue-400">
+                    {formatMoney(currentMilestones.handover30.amount)}
+                  </div>
+                  <label htmlFor="han-check" className="text-[10px] text-slate-400 cursor-pointer block mt-1">
+                    {handoverPaid ? '✓ Month-End Paid' : '○ Billed at month completion'}
+                  </label>
                 </div>
-                <div className="text-sm font-bold font-mono text-indigo-400">
-                  {formatMoney(currentMilestones.midway30.amount)}
-                </div>
-                <label htmlFor="mid-check" className="text-[10px] text-slate-400 cursor-pointer block mt-1">
-                  {midwayPaid ? '✓ Milestone 2 Paid' : '○ Billed at 70%'}
-                </label>
               </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
+                
+                {/* Milestone 1: 40% Advance */}
+                <div className={`p-2.5 rounded-lg border transition ${
+                  advancePaid 
+                    ? 'bg-emerald-950/40 border-emerald-700' 
+                    : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-slate-200">
+                      1. 40% Advance
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={advancePaid}
+                      onChange={(e) => setAdvancePaid(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
+                      id="adv-check"
+                    />
+                  </div>
+                  <div className="text-sm font-bold font-mono text-emerald-400">
+                    {formatMoney(currentMilestones.advance40.amount)}
+                  </div>
+                  <label htmlFor="adv-check" className="text-[10px] text-slate-400 cursor-pointer block mt-1">
+                    {advancePaid ? '✓ Advance Received' : '○ Kickoff Due'}
+                  </label>
+                </div>
 
-              {/* Milestone 3: 30% Handover */}
-              <div className={`p-2.5 rounded-lg border transition ${
-                handoverPaid 
-                  ? 'bg-emerald-950/40 border-emerald-700' 
-                  : 'bg-slate-800 border-slate-700'
-              }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold text-slate-200">
-                    3. 30% Handover
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={handoverPaid}
-                    onChange={(e) => setHandoverPaid(e.target.checked)}
-                    className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
-                    id="han-check"
-                  />
+                {/* Milestone 2: 30% at 70% Progress */}
+                <div className={`p-2.5 rounded-lg border transition ${
+                  midwayPaid 
+                    ? 'bg-emerald-950/40 border-emerald-700' 
+                    : progressPercent >= 70
+                    ? 'bg-rose-950/40 border-rose-700'
+                    : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-slate-200">
+                      2. 30% (70% Work)
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={midwayPaid}
+                      onChange={(e) => setMidwayPaid(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
+                      id="mid-check"
+                    />
+                  </div>
+                  <div className="text-sm font-bold font-mono text-indigo-400">
+                    {formatMoney(currentMilestones.midway30.amount)}
+                  </div>
+                  <label htmlFor="mid-check" className="text-[10px] text-slate-400 cursor-pointer block mt-1">
+                    {midwayPaid ? '✓ Milestone 2 Paid' : '○ Billed at 70%'}
+                  </label>
                 </div>
-                <div className="text-sm font-bold font-mono text-blue-400">
-                  {formatMoney(currentMilestones.handover30.amount)}
+
+                {/* Milestone 3: 30% Handover */}
+                <div className={`p-2.5 rounded-lg border transition ${
+                  handoverPaid 
+                    ? 'bg-emerald-950/40 border-emerald-700' 
+                    : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold text-slate-200">
+                      3. 30% Handover
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={handoverPaid}
+                      onChange={(e) => setHandoverPaid(e.target.checked)}
+                      className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
+                      id="han-check"
+                    />
+                  </div>
+                  <div className="text-sm font-bold font-mono text-blue-400">
+                    {formatMoney(currentMilestones.handover30.amount)}
+                  </div>
+                  <label htmlFor="han-check" className="text-[10px] text-slate-400 cursor-pointer block mt-1">
+                    {handoverPaid ? '✓ Handover Paid' : '○ Billed at completion'}
+                  </label>
                 </div>
-                <label htmlFor="han-check" className="text-[10px] text-slate-400 cursor-pointer block mt-1">
-                  {handoverPaid ? '✓ Handover Paid' : '○ Billed at completion'}
-                </label>
+
               </div>
-
-            </div>
+            )}
 
             {/* Financial Summary Result Live Bar */}
             <div className="flex items-center justify-between px-3 py-2 bg-slate-900 rounded-lg text-xs font-medium border border-slate-800">
