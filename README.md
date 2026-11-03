@@ -359,16 +359,8 @@ function doPost(e) {
   try {
     var contents = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var projects = contents.projects || [];
     var currency = contents.currency || "BDT";
-
-    var grouped = {};
-    for (var i = 0; i < projects.length; i++) {
-      var p = projects[i];
-      var ws = p.worksheet || "General";
-      if (!grouped[ws]) grouped[ws] = [];
-      grouped[ws].push(p);
-    }
+    var action = contents.action || "sync";
 
     var headers = [
       "Company Name", "Clients Name", "Company Type", "Project Type",
@@ -379,7 +371,96 @@ function doPost(e) {
       "Project Status", "Progress %", "Deployment", "Client Phone", "WhatsApp", "Client Email", "Notes"
     ];
 
-    for (var sheetName in grouped) {
+    // Handle explicit single worksheet deletion
+    if (action === "deleteWorksheet" && contents.worksheetName) {
+      var targetSheet = ss.getSheetByName(contents.worksheetName);
+      if (targetSheet) {
+        if (ss.getSheets().length > 1) {
+          ss.deleteSheet(targetSheet);
+        } else {
+          targetSheet.clearContents();
+          targetSheet.setName("General");
+          targetSheet.appendRow(headers);
+        }
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "success",
+          message: "Worksheet " + contents.worksheetName + " deleted successfully."
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "not_found",
+        message: "Worksheet " + contents.worksheetName + " was not found."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Handle full database reset
+    if (action === "resetAll") {
+      var sheets = ss.getSheets();
+      var defaultSheet = sheets[0];
+      defaultSheet.setName("General");
+      defaultSheet.clearContents();
+      defaultSheet.appendRow(headers);
+      var headerRange = defaultSheet.getRange(1, 1, 1, headers.length);
+      headerRange.setBackground("#93cf8c").setFontColor("#090d16").setFontWeight("bold");
+
+      for (var d = sheets.length - 1; d > 0; d--) {
+        ss.deleteSheet(sheets[d]);
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        message: "Database reset successfully."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Standard sync action
+    var projects = contents.projects || [];
+    var activeWorksheets = contents.activeWorksheets || contents.worksheets || [];
+
+    // Group projects by monthly worksheet
+    var grouped = {};
+    for (var i = 0; i < projects.length; i++) {
+      var p = projects[i];
+      var ws = p.worksheet || "General";
+      if (!grouped[ws]) grouped[ws] = [];
+      grouped[ws].push(p);
+    }
+
+    // Collect all valid target sheets
+    var targetSheets = {};
+    if (Array.isArray(activeWorksheets)) {
+      for (var a = 0; a < activeWorksheets.length; a++) {
+        var wName = String(activeWorksheets[a] || "").trim();
+        if (wName && wName !== "All Worksheets") {
+          targetSheets[wName] = true;
+        }
+      }
+    }
+    for (var g in grouped) {
+      if (g && g !== "All Worksheets") {
+        targetSheets[g] = true;
+      }
+    }
+
+    // Remove any physical sheets in spreadsheet that are NOT in targetSheets (except Template/system)
+    if (Object.keys(targetSheets).length > 0) {
+      var existingSheets = ss.getSheets();
+      for (var k = 0; k < existingSheets.length; k++) {
+        var curSheet = existingSheets[k];
+        var curName = curSheet.getName();
+        if (!curName || curName === "Template" || curName.indexOf("_") === 0) continue;
+        if (!targetSheets[curName]) {
+          if (ss.getSheets().length > 1) {
+            ss.deleteSheet(curSheet);
+          } else {
+            curSheet.clearContents();
+          }
+        }
+      }
+    }
+
+    // Mirror each target sheet
+    for (var sheetName in targetSheets) {
       var sheet = ss.getSheetByName(sheetName);
       if (!sheet) {
         sheet = ss.insertSheet(sheetName);
@@ -391,11 +472,12 @@ function doPost(e) {
       var headerRange = sheet.getRange(1, 1, 1, headers.length);
       headerRange.setBackground("#93cf8c").setFontColor("#090d16").setFontWeight("bold");
 
-      var items = grouped[sheetName];
+      var items = grouped[sheetName] || [];
       for (var j = 0; j < items.length; j++) {
         var item = items[j];
+        var isSocial = item.projectType === "social-media-marketing";
         var advStatus = item.advancePaid ? "PAID (৳" + Number(item.advance40 || 0).toLocaleString() + ")" : "DUE (৳" + Number(item.advance40 || 0).toLocaleString() + ")";
-        var midStatus = item.midwayPaid ? "PAID (৳" + Number(item.midway30 || 0).toLocaleString() + ")" : "DUE (৳" + Number(item.midway30 || 0).toLocaleString() + ")";
+        var midStatus = isSocial ? "N/A (50-50)" : (item.midwayPaid ? "PAID (৳" + Number(item.midway30 || 0).toLocaleString() + ")" : "DUE (৳" + Number(item.midway30 || 0).toLocaleString() + ")");
         var endStatus = item.handoverPaid ? "PAID (৳" + Number(item.handover30 || 0).toLocaleString() + ")" : "DUE (৳" + Number(item.handover30 || 0).toLocaleString() + ")";
 
         sheet.appendRow([
