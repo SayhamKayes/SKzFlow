@@ -1,4 +1,4 @@
-import { Project, PaymentMilestones, AuthUser } from '../types/project';
+import { Project, PaymentMilestones, AuthUser, ServiceType } from '../types/project';
 
 const STORAGE_KEY = 'projectflow_agency_projects_v4';
 const WEBHOOK_KEY = 'projectflow_google_sheets_webhook';
@@ -16,8 +16,42 @@ export const getCurrentMonthWorksheet = (): string => {
 
 export const computeMilestones = (
   confirmedBudget: number,
-  existingMilestones?: Partial<PaymentMilestones>
+  existingMilestones?: Partial<PaymentMilestones>,
+  projectType?: ServiceType
 ): PaymentMilestones => {
+  const isSocialMedia = projectType === 'social-media-marketing' || existingMilestones?.model === '50-50';
+
+  if (isSocialMedia) {
+    const advanceAmount = Math.round(confirmedBudget * 0.5);
+    const monthEndAmount = Math.max(0, confirmedBudget - advanceAmount);
+
+    return {
+      advance40: {
+        percent: 50,
+        label: '50% Advance Payment',
+        amount: advanceAmount,
+        paid: existingMilestones?.advance40?.paid ?? false,
+        paidDate: existingMilestones?.advance40?.paidDate,
+        note: existingMilestones?.advance40?.note,
+      },
+      midway30: {
+        percent: 0,
+        label: 'N/A (50-50 Model)',
+        amount: 0,
+        paid: false,
+      },
+      handover30: {
+        percent: 50,
+        label: '50% Month-End Payment',
+        amount: monthEndAmount,
+        paid: existingMilestones?.handover30?.paid ?? false,
+        paidDate: existingMilestones?.handover30?.paidDate,
+        note: existingMilestones?.handover30?.note,
+      },
+      model: '50-50',
+    };
+  }
+
   const advanceAmount = Math.round(confirmedBudget * 0.4);
   const midwayAmount = Math.round(confirmedBudget * 0.3);
   const handoverAmount = confirmedBudget - advanceAmount - midwayAmount;
@@ -47,14 +81,15 @@ export const computeMilestones = (
       paidDate: existingMilestones?.handover30?.paidDate,
       note: existingMilestones?.handover30?.note,
     },
+    model: '40-30-30',
   };
 };
 
 export const computeFinancials = (confirmedBudget: number, milestones: PaymentMilestones) => {
   let totalPaid = 0;
-  if (milestones.advance40.paid) totalPaid += milestones.advance40.amount;
-  if (milestones.midway30.paid) totalPaid += milestones.midway30.amount;
-  if (milestones.handover30.paid) totalPaid += milestones.handover30.amount;
+  if (milestones.advance40?.paid) totalPaid += (milestones.advance40.amount || 0);
+  if (milestones.midway30?.paid) totalPaid += (milestones.midway30.amount || 0);
+  if (milestones.handover30?.paid) totalPaid += (milestones.handover30.amount || 0);
 
   const dueAmount = Math.max(0, confirmedBudget - totalPaid);
   return { totalPaid, dueAmount };
@@ -174,27 +209,27 @@ export const INITIAL_PROJECTS: Project[] = [
     progressPercent: 100,
     milestones: {
       advance40: {
-        percent: 40,
-        label: '40% Advance Payment',
-        amount: 22000,
+        percent: 50,
+        label: '50% Advance Payment',
+        amount: 27500,
         paid: true,
         paidDate: '2026-10-02',
       },
       midway30: {
-        percent: 30,
-        label: '30% Milestone Payment (at 70% Work)',
-        amount: 16500,
-        paid: true,
-        paidDate: '2026-10-18',
+        percent: 0,
+        label: 'N/A (50-50 Model)',
+        amount: 0,
+        paid: false,
       },
       handover30: {
-        percent: 30,
-        label: '30% Final Payment (Handover)',
-        amount: 16500,
+        percent: 50,
+        label: '50% Month-End Payment',
+        amount: 27500,
         paid: true,
         paidDate: '2026-11-01',
         note: 'Month-end campaign reports handed over & approved',
       },
+      model: '50-50',
     },
     totalPaid: 55000,
     dueAmount: 0,
@@ -541,12 +576,15 @@ export const generateSpreadsheetTSV = (projects: Project[]): string => {
   ];
 
   const rows = projects.map(p => {
+    const isSocial = p.projectType === 'social-media-marketing' || p.milestones?.model === '50-50';
     const advanceStatus = p.milestones.advance40.paid 
       ? `Paid (৳${p.milestones.advance40.amount.toLocaleString()})` 
       : `Due (৳${p.milestones.advance40.amount.toLocaleString()})`;
-    const midStatus = p.milestones.midway30.paid 
-      ? `Paid (৳${p.milestones.midway30.amount.toLocaleString()})` 
-      : `Due (৳${p.milestones.midway30.amount.toLocaleString()})`;
+    const midStatus = isSocial
+      ? 'N/A (50-50)'
+      : (p.milestones.midway30.paid 
+          ? `Paid (৳${p.milestones.midway30.amount.toLocaleString()})` 
+          : `Due (৳${p.milestones.midway30.amount.toLocaleString()})`);
     const finalStatus = p.milestones.handover30.paid 
       ? `Paid (৳${p.milestones.handover30.amount.toLocaleString()})` 
       : `Due (৳${p.milestones.handover30.amount.toLocaleString()})`;
@@ -609,32 +647,35 @@ export const downloadProjectsCSV = (projects: Project[]) => {
     'WhatsApp Number'
   ];
 
-  const rows = projects.map(p => [
-    `"${(p.companyName || '').replace(/"/g, '""')}"`,
-    `"${(p.clientsName || '').replace(/"/g, '""')}"`,
-    `"${(p.companyType || '').replace(/"/g, '""')}"`,
-    `"${p.projectType}"`,
-    `"${p.startDate || ''}"`,
-    `"${p.targetDeadline || ''}"`,
-    `"${p.worksheet || ''}"`,
-    p.budgetEstimated,
-    p.budgetConfirmed,
-    `"${(p.confirmation || '').replace(/"/g, '""')}"`,
-    p.milestones.advance40.paid ? 'PAID' : 'DUE',
-    p.milestones.advance40.amount,
-    p.milestones.midway30.paid ? 'PAID' : 'DUE',
-    p.milestones.midway30.amount,
-    p.milestones.handover30.paid ? 'PAID' : 'DUE',
-    p.milestones.handover30.amount,
-    p.totalPaid,
-    p.dueAmount,
-    `${p.progressPercent}%`,
-    `"${p.projectStatus}"`,
-    `"${(p.deployment || '').replace(/"/g, '""')}"`,
-    `"${p.clientEmail || ''}"`,
-    `"${p.clientPhone || ''}"`,
-    `"${p.clientWhatsapp || ''}"`
-  ]);
+  const rows = projects.map(p => {
+    const isSocial = p.projectType === 'social-media-marketing' || p.milestones?.model === '50-50';
+    return [
+      `"${(p.companyName || '').replace(/"/g, '""')}"`,
+      `"${(p.clientsName || '').replace(/"/g, '""')}"`,
+      `"${(p.companyType || '').replace(/"/g, '""')}"`,
+      `"${p.projectType}"`,
+      `"${p.startDate || ''}"`,
+      `"${p.targetDeadline || ''}"`,
+      `"${p.worksheet || ''}"`,
+      p.budgetEstimated,
+      p.budgetConfirmed,
+      `"${(p.confirmation || '').replace(/"/g, '""')}"`,
+      p.milestones.advance40.paid ? 'PAID' : 'DUE',
+      p.milestones.advance40.amount,
+      isSocial ? 'N/A' : (p.milestones.midway30.paid ? 'PAID' : 'DUE'),
+      isSocial ? 0 : p.milestones.midway30.amount,
+      p.milestones.handover30.paid ? 'PAID' : 'DUE',
+      p.milestones.handover30.amount,
+      p.totalPaid,
+      p.dueAmount,
+      `${p.progressPercent}%`,
+      `"${p.projectStatus}"`,
+      `"${(p.deployment || '').replace(/"/g, '""')}"`,
+      `"${p.clientEmail || ''}"`,
+      `"${p.clientPhone || ''}"`,
+      `"${p.clientWhatsapp || ''}"`
+    ];
+  });
 
   const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -687,12 +728,15 @@ export const downloadProjectsExcel = (projects: Project[], prefix = 'Projects') 
   };
 
   const rowsXml = projects.map(p => {
+    const isSocial = p.projectType === 'social-media-marketing' || p.milestones?.model === '50-50';
     const advStatus = p.milestones.advance40.paid 
       ? `PAID (৳${p.milestones.advance40.amount.toLocaleString()})` 
       : `DUE (৳${p.milestones.advance40.amount.toLocaleString()})`;
-    const midStatus = p.milestones.midway30.paid 
-      ? `PAID (৳${p.milestones.midway30.amount.toLocaleString()})` 
-      : `DUE (৳${p.milestones.midway30.amount.toLocaleString()})`;
+    const midStatus = isSocial
+      ? 'N/A (50-50)'
+      : (p.milestones.midway30.paid 
+          ? `PAID (৳${p.milestones.midway30.amount.toLocaleString()})` 
+          : `DUE (৳${p.milestones.midway30.amount.toLocaleString()})`);
     const endStatus = p.milestones.handover30.paid 
       ? `PAID (৳${p.milestones.handover30.amount.toLocaleString()})` 
       : `DUE (৳${p.milestones.handover30.amount.toLocaleString()})`;
