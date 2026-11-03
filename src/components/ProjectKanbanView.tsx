@@ -117,55 +117,96 @@ export const ProjectKanbanView: React.FC<ProjectKanbanViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Milestone Mini Status Pills */}
-                    <div className="grid grid-cols-3 gap-1 my-2 text-[9px] font-mono">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleMilestone(p.id, 'advance40');
-                        }}
-                        className={`px-1 py-0.5 rounded text-center border font-bold cursor-pointer ${
-                          adv.paid 
-                            ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
-                            : 'bg-amber-950/70 text-amber-300 border-amber-700'
-                        }`}
-                        title="40% Advance"
-                      >
-                        40%: {adv.paid ? 'PAID' : 'DUE'}
-                      </button>
+                    {/* Milestone Mini Status Pills (2 columns for Social Media, 3 columns for others) */}
+                    {(() => {
+                      const isSocial = p.projectType === 'social-media-marketing' || p.milestones?.model === '50-50';
+                      if (isSocial) {
+                        return (
+                          <div className="grid grid-cols-2 gap-1 my-2 text-[9px] font-mono">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleMilestone(p.id, 'advance40');
+                              }}
+                              className={`px-1 py-0.5 rounded text-center border font-bold cursor-pointer ${
+                                adv.paid 
+                                  ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
+                                  : 'bg-amber-950/70 text-amber-300 border-amber-700'
+                              }`}
+                              title="50% Advance"
+                            >
+                              50% ADV: {adv.paid ? 'PAID' : 'DUE'}
+                            </button>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleMilestone(p.id, 'midway30');
-                        }}
-                        className={`px-1 py-0.5 rounded text-center border font-bold cursor-pointer ${
-                          mid.paid 
-                            ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
-                            : p.progressPercent >= 70
-                            ? 'bg-rose-950/80 text-rose-300 border-rose-700 font-extrabold animate-pulse'
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}
-                        title="30% at 70% Progress"
-                      >
-                        30%: {mid.paid ? 'PAID' : 'DUE'}
-                      </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleMilestone(p.id, 'handover30');
+                              }}
+                              className={`px-1 py-0.5 rounded text-center border font-bold cursor-pointer ${
+                                fin.paid 
+                                  ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
+                                  : 'bg-slate-800 text-slate-400 border-slate-700'
+                              }`}
+                              title="50% Month-End Retainer"
+                            >
+                              50% END: {fin.paid ? 'PAID' : 'DUE'}
+                            </button>
+                          </div>
+                        );
+                      }
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleMilestone(p.id, 'handover30');
-                        }}
-                        className={`px-1 py-0.5 rounded text-center border font-bold cursor-pointer ${
-                          fin.paid 
-                            ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
-                            : 'bg-slate-800 text-slate-400 border-slate-700'
-                        }`}
-                        title="30% Handover"
-                      >
-                        30%: {fin.paid ? 'PAID' : 'DUE'}
-                      </button>
-                    </div>
+                      return (
+                        <div className="grid grid-cols-3 gap-1 my-2 text-[9px] font-mono">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleMilestone(p.id, 'advance40');
+                            }}
+                            className={`px-1 py-0.5 rounded text-center border font-bold cursor-pointer ${
+                              adv.paid 
+                                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
+                                : 'bg-amber-950/70 text-amber-300 border-amber-700'
+                            }`}
+                            title="40% Advance"
+                          >
+                            40%: {adv.paid ? 'PAID' : 'DUE'}
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleMilestone(p.id, 'midway30');
+                            }}
+                            className={`px-1 py-0.5 rounded text-center border font-bold cursor-pointer ${
+                              mid.paid 
+                                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
+                                : p.progressPercent >= 70
+                                ? 'bg-rose-950/80 text-rose-300 border-rose-700 font-extrabold animate-pulse'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}
+                            title="30% at 70% Progress"
+                          >
+                            30%: {mid.paid ? 'PAID' : 'DUE'}
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleMilestone(p.id, 'handover30');
+                            }}
+                            className={`px-1 py-0.5 rounded text-center border font-bold cursor-pointer ${
+                              fin.paid 
+                                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}
+                            title="30% Handover"
+                          >
+                            30%: {fin.paid ? 'PAID' : 'DUE'}
+                          </button>
+                        </div>
+                      );
+                    })()}
 
                     {/* Bottom Financial & Quick Actions */}
                     <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
