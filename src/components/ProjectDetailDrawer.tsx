@@ -376,13 +376,13 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
             {project.deploymentUrl && (
               <div className="pt-1">
                 <a
-                  href={project.deploymentUrl}
+                  href={project.deploymentUrl.startsWith('http') ? project.deploymentUrl : `https://${project.deploymentUrl}`}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center space-x-1.5 transition"
                 >
-                  <span>Open Live URL</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span className="truncate">Open {project.deploymentUrl.replace(/^https?:\/\//, '')}</span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0 ml-1" />
                 </a>
               </div>
             )}
