@@ -478,11 +478,7 @@ export const loadWorksheets = (): string[] => {
   const currentMonth = getCurrentMonthWorksheet();
   const defaultWorksheets = [
     'All Worksheets',
-    currentMonth,
-    'October 2026',
-    'December 2026',
-    'January 2027',
-    '2027 Full Year'
+    currentMonth
   ];
 
   try {
@@ -493,8 +489,9 @@ export const loadWorksheets = (): string[] => {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      // Filter out any accidental 'Untitled Worksheet'
-      const cleaned = parsed.filter(w => w !== 'Untitled Worksheet');
+      // Filter out accidental titles and legacy placeholder phantom sheets
+      const legacyPhantoms = new Set(['Untitled Worksheet', 'January 2027', '2027 Full Year']);
+      const cleaned = parsed.filter(w => !legacyPhantoms.has(w));
       if (!cleaned.includes('All Worksheets')) cleaned.unshift('All Worksheets');
       if (!cleaned.includes(currentMonth)) cleaned.splice(1, 0, currentMonth);
       return cleaned;
