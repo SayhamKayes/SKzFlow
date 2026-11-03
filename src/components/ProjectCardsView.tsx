@@ -191,16 +191,17 @@ export const ProjectCardsView: React.FC<ProjectCardsViewProps> = ({
               <div>
                 {p.deploymentUrl ? (
                   <a
-                    href={p.deploymentUrl}
+                    href={p.deploymentUrl.startsWith('http') ? p.deploymentUrl : `https://${p.deploymentUrl}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center text-xs text-blue-400 hover:text-blue-300 hover:underline"
+                    className="inline-flex items-center text-xs text-blue-400 hover:text-blue-300 hover:underline max-w-[140px] truncate"
+                    title={p.deploymentUrl}
                   >
-                    <span>{p.deployment || 'Live URL'}</span>
-                    <ExternalLink className="w-3 h-3 ml-1" />
+                    <span className="truncate">{p.deployment ? `${p.deployment}: ${p.deploymentUrl.replace(/^https?:\/\//, '')}` : p.deploymentUrl.replace(/^https?:\/\//, '')}</span>
+                    <ExternalLink className="w-3 h-3 ml-1 shrink-0" />
                   </a>
                 ) : (
-                  <span className="text-xs text-slate-400">{p.deployment || 'Local'}</span>
+                  <span className="text-xs text-slate-400">{p.deployment || 'Not Deployed'}</span>
                 )}
               </div>
 
