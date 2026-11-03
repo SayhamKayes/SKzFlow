@@ -67,10 +67,10 @@ export const ProjectCardsView: React.FC<ProjectCardsViewProps> = ({
               {/* Dates */}
               {(p.startDate || p.targetDeadline) && (
                 <div className="flex items-center space-x-2 text-xs text-slate-400 mb-3 font-mono">
-                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Start: {p.startDate || '—'}</span>
                   <span>|</span>
-                  <span className="text-amber-300">Deadline: {p.targetDeadline || '—'}</span>
+                  <span className="text-emerald-300">Deadline: {p.targetDeadline || '—'}</span>
                 </div>
               )}
 
