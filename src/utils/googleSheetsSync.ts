@@ -118,24 +118,56 @@ function doGet(e) {
       var data = sheet.getDataRange().getValues();
       if (data.length <= 1) continue; // Skip header-only sheets
 
+      var headerRow = data[0] || [];
+      var colMap = {};
+      for (var h = 0; h < headerRow.length; h++) {
+        colMap[String(headerRow[h] || "").trim().toLowerCase()] = h;
+      }
+
+      var colCompany = colMap["company name"] !== undefined ? colMap["company name"] : 0;
+      var colClient = colMap["clients name"] !== undefined ? colMap["clients name"] : 1;
+      var colCompType = colMap["company type"] !== undefined ? colMap["company type"] : 2;
+      var colProjType = colMap["project type"] !== undefined ? colMap["project type"] : 3;
+      var colStart = colMap["start date"] !== undefined ? colMap["start date"] : 4;
+      var colDeadline = colMap["target deadline"] !== undefined ? colMap["target deadline"] : 5;
+      var colWs = colMap["worksheet"] !== undefined ? colMap["worksheet"] : 6;
+      var colEst = colMap["budget estimated"] !== undefined ? colMap["budget estimated"] : 7;
+      var colConf = colMap["budget confirmed"] !== undefined ? colMap["budget confirmed"] : 8;
+      var colConfType = colMap["confirmation"] !== undefined ? colMap["confirmation"] : 9;
+      var colAdv = colMap["40% / 50% advance"] !== undefined ? colMap["40% / 50% advance"] : 10;
+      var colMid = colMap["30% (at 70%)"] !== undefined ? colMap["30% (at 70%)"] : 11;
+      var colEnd = colMap["30% / 50% handover"] !== undefined ? colMap["30% / 50% handover"] : 12;
+      var colPaid = colMap["total paid"] !== undefined ? colMap["total paid"] : 13;
+      var colDue = colMap["due"] !== undefined ? colMap["due"] : 14;
+      var colStatus = colMap["project status"] !== undefined ? colMap["project status"] : 15;
+      var colProg = colMap["progress %"] !== undefined ? colMap["progress %"] : 16;
+      
+      var colDepPlatform = colMap["deployment platform"] !== undefined ? colMap["deployment platform"] : (colMap["deployment"] !== undefined ? colMap["deployment"] : 17);
+      var colDepUrl = colMap["live deployment url"] !== undefined ? colMap["live deployment url"] : (colMap["deployment url"] !== undefined ? colMap["deployment url"] : (colMap["live url"] !== undefined ? colMap["live url"] : -1));
+
+      var colPhone = colMap["client phone"] !== undefined ? colMap["client phone"] : (colDepUrl !== -1 ? 19 : 18);
+      var colWhatsapp = colMap["whatsapp"] !== undefined ? colMap["whatsapp"] : (colDepUrl !== -1 ? 20 : 19);
+      var colEmail = colMap["client email"] !== undefined ? colMap["client email"] : (colDepUrl !== -1 ? 21 : 20);
+      var colNotes = colMap["notes"] !== undefined ? colMap["notes"] : (colDepUrl !== -1 ? 22 : 21);
+
       for (var r = 1; r < data.length; r++) {
         var row = data[r];
         if (!row[0] && !row[1]) continue; // Skip empty rows
 
-        var companyName = String(row[0] || "").trim();
-        var clientsName = String(row[1] || "").trim();
-        var companyType = String(row[2] || "Enterprise Client").trim();
-        var projectType = String(row[3] || "web-app").toLowerCase().replace(/\\s+/g, '-').trim();
-        var startDate = formatDateClean(row[4]);
-        var targetDeadline = formatDateClean(row[5]);
-        var ws = formatWorksheetClean(row[6], cleanSheetName);
-        var budgetEstimated = Number(row[7]) || 0;
-        var budgetConfirmed = Number(row[8]) || 0;
-        var confirmation = String(row[9] || "Signed Contract").trim();
+        var companyName = String(row[colCompany] || "").trim();
+        var clientsName = String(row[colClient] || "").trim();
+        var companyType = String(row[colCompType] || "Enterprise Client").trim();
+        var projectType = String(row[colProjType] || "web-app").toLowerCase().replace(/\\s+/g, '-').trim();
+        var startDate = formatDateClean(row[colStart]);
+        var targetDeadline = formatDateClean(row[colDeadline]);
+        var ws = formatWorksheetClean(row[colWs], cleanSheetName);
+        var budgetEstimated = Number(row[colEst]) || 0;
+        var budgetConfirmed = Number(row[colConf]) || 0;
+        var confirmation = String(row[colConfType] || "Signed Contract").trim();
 
-        var advRaw = String(row[10] || "").toUpperCase();
-        var midRaw = String(row[11] || "").toUpperCase();
-        var endRaw = String(row[12] || "").toUpperCase();
+        var advRaw = String(row[colAdv] || "").toUpperCase();
+        var midRaw = String(row[colMid] || "").toUpperCase();
+        var endRaw = String(row[colEnd] || "").toUpperCase();
 
         var advancePaid = advRaw.indexOf("PAID") !== -1;
         var midwayPaid = midRaw.indexOf("PAID") !== -1;
@@ -149,13 +181,45 @@ function doGet(e) {
         var totalPaid = (advancePaid ? advanceAmount : 0) + (isSocial ? 0 : (midwayPaid ? midwayAmount : 0)) + (handoverPaid ? handoverAmount : 0);
         var dueAmount = Math.max(0, budgetConfirmed - totalPaid);
 
-        var projectStatus = String(row[15] || (totalPaid === budgetConfirmed && budgetConfirmed > 0 ? "Completed" : "In Progress")).trim();
-        var progressPercent = Number(String(row[16] || "").replace("%", "")) || (projectStatus === "Completed" ? 100 : 50);
-        var deployment = String(row[17] || "").trim();
-        var clientPhone = String(row[18] || "").trim();
-        var clientWhatsapp = String(row[19] || clientPhone).trim();
-        var clientEmail = String(row[20] || "").trim();
-        var notes = String(row[21] || "").trim();
+        var projectStatus = String(row[colStatus] || (totalPaid === budgetConfirmed && budgetConfirmed > 0 ? "Completed" : "In Progress")).trim();
+
+        // Parse Progress % accurately
+        var rawProg = row[colProg];
+        var progressPercent = 0;
+        if (rawProg !== "" && rawProg !== null && rawProg !== undefined) {
+          var pNum = Number(String(rawProg).replace("%", "").trim());
+          if (!isNaN(pNum)) {
+            if (pNum > 0 && pNum <= 1 && String(rawProg).indexOf("%") === -1) {
+              progressPercent = Math.round(pNum * 100);
+            } else {
+              progressPercent = Math.round(pNum);
+            }
+          }
+        } else {
+          progressPercent = projectStatus === "Completed" ? 100 : (projectStatus === "70% Done" ? 70 : 0);
+        }
+
+        // Parse Deployment Platform & Live URL accurately
+        var deployment = "";
+        var deploymentUrl = "";
+        if (colDepUrl !== -1) {
+          deployment = String(row[colDepPlatform] || "").trim();
+          deploymentUrl = String(row[colDepUrl] || "").trim();
+        } else {
+          var rawDepVal = String(row[colDepPlatform] || "").trim();
+          if (rawDepVal.indexOf("http://") === 0 || rawDepVal.indexOf("https://") === 0) {
+            deploymentUrl = rawDepVal;
+            deployment = "Live";
+          } else {
+            deployment = rawDepVal;
+            deploymentUrl = "";
+          }
+        }
+
+        var clientPhone = String(row[colPhone] || "").trim();
+        var clientWhatsapp = String(row[colWhatsapp] || clientPhone).trim();
+        var clientEmail = String(row[colEmail] || "").trim();
+        var notes = String(row[colNotes] || "").trim();
 
         var id = "proj-" + cleanSheetName.toLowerCase().replace(/[^a-z0-9]/g, '-') + "-" + r;
 
@@ -195,7 +259,7 @@ function doGet(e) {
           dueAmount: dueAmount,
           projectStatus: projectStatus,
           deployment: deployment,
-          deploymentUrl: deployment,
+          deploymentUrl: deploymentUrl,
           clientEmail: clientEmail,
           clientPhone: clientPhone,
           clientWhatsapp: clientWhatsapp,
@@ -236,7 +300,8 @@ function doPost(e) {
       "Budget Estimated (" + currency + ")", "Budget Confirmed (" + currency + ")",
       "Confirmation", "40% / 50% Advance", "30% (at 70%)", "30% / 50% Handover",
       "Total Paid (" + currency + ")", "Due (" + currency + ")",
-      "Project Status", "Progress %", "Deployment", "Client Phone", "WhatsApp", "Client Email", "Notes"
+      "Project Status", "Progress %", "Deployment Platform", "Live Deployment URL",
+      "Client Phone", "WhatsApp", "Client Email", "Notes"
     ];
 
     // Handle explicit single worksheet deletion
@@ -365,8 +430,9 @@ function doPost(e) {
           item.totalPaid,
           item.dueAmount,
           item.projectStatus,
-          (item.progressPercent || 0) + "%",
+          (item.progressPercent !== undefined ? item.progressPercent : 0) + "%",
           item.deployment || "",
+          item.deploymentUrl || "",
           item.clientPhone || "",
           item.clientWhatsapp || "",
           item.clientEmail || "",
@@ -434,14 +500,28 @@ export const fetchProjectsFromGoogleSheets = async (
         const ws = normalizeWorksheetName(p.worksheet);
 
         // Convert percentage decimals (e.g. 0.5) to integer percentages (e.g. 50)
-        let progress = Number(p.progressPercent) || 0;
-        if (progress > 0 && progress <= 1) {
-          progress = Math.round(progress * 100);
+        let progress = 0;
+        if (p.progressPercent !== undefined && p.progressPercent !== null) {
+          const num = Number(p.progressPercent);
+          if (!isNaN(num)) {
+            if (num > 0 && num <= 1) {
+              progress = Math.round(num * 100);
+            } else {
+              progress = Math.round(num);
+            }
+          }
         }
 
         const cleanStart = formatLocalDate(p.startDate);
         const cleanDeadline = formatLocalDate(p.targetDeadline);
         const cleanConfirmation = formatLocalDate(p.confirmationDate || p.startDate);
+
+        const cleanDeployment = String(p.deployment || '').trim();
+        let cleanDeploymentUrl = String(p.deploymentUrl || '').trim();
+        // Prevent non-URL platform labels (like legacy "Live") from masquerading as a URL
+        if (cleanDeploymentUrl && !cleanDeploymentUrl.startsWith('http://') && !cleanDeploymentUrl.startsWith('https://') && !cleanDeploymentUrl.includes('.')) {
+          cleanDeploymentUrl = '';
+        }
 
         // Sanitize milestone paid dates to prevent timezone drift
         const cleanMilestones = p.milestones ? {
@@ -468,6 +548,8 @@ export const fetchProjectsFromGoogleSheets = async (
           milestones: cleanMilestones || p.milestones,
           worksheet: ws || 'General',
           progressPercent: progress,
+          deployment: cleanDeployment,
+          deploymentUrl: cleanDeploymentUrl,
         };
       });
 
@@ -559,8 +641,9 @@ export async function syncProjectsToGoogleSheets(
           totalPaid: p.totalPaid,
           dueAmount: p.dueAmount,
           projectStatus: p.projectStatus,
-          progressPercent: p.progressPercent,
+          progressPercent: p.progressPercent ?? 0,
           deployment: p.deployment || '',
+          deploymentUrl: p.deploymentUrl || '',
           clientPhone: p.clientPhone || '',
           clientWhatsapp: p.clientWhatsapp || '',
           clientEmail: p.clientEmail || '',
