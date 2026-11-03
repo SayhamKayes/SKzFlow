@@ -1,20 +1,508 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# ProjectFlow — Agency Client Management & Central Google Sheets Database
 
-# Run and deploy your AI Studio app
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+![React 19](https://img.shields.io/badge/React-19.0-blue?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-38bdf8?logo=tailwindcss)
+![Google Sheets DB](https://img.shields.io/badge/Database-Google_Sheets_API-34a853?logo=googlesheets)
+![Currency](https://img.shields.io/badge/Currency-BDT_(৳)-amber)
+![Vercel Ready](https://img.shields.io/badge/Deployment-Vercel-black?logo=vercel)
 
-This contains everything you need to run your app locally.
+**ProjectFlow** is a modern, high-performance web application designed for digital agencies, software consultancies, and development studios. It provides end-to-end client project management, 40%-30%-30% milestone billing tracking in pure Bangladeshi Taka (BDT `৳`), and a **Google Sheets Central Cloud Database** architecture that guarantees 100% data consistency across all devices, browsers, and team members.
 
-View your app in AI Studio: https://ai.studio/apps/fc435034-3fa6-4578-bf67-13577019a593
+---
 
-## Run Locally
+## 🌟 Key Features & Capabilities
 
-**Prerequisites:**  Node.js
+- **Single Source of Truth (Google Sheets Database)**:
+  - Eliminates device-isolated storage. All client records load directly from and persist to a centralized Google Sheet.
+  - Changes made on a desktop immediately reflect on mobile browsers and across team members.
+  - Transient offline cache fallback ensures fast initial paint even under intermittent connectivity.
+- **40% - 30% - 30% Milestone Financial Engine**:
+  - Automatically splits project budgets into standard agency milestones:
+    - **40% Advance Payment**: Collected upfront to kick off the project.
+    - **30% Milestone Payment**: Billed upon 70% project completion.
+    - **30% Final Payment**: Billed upon final handover and acceptance.
+  - Dynamically calculates Total Paid, Outstanding Due, and Collection Rate % in real-time.
+- **Pure BDT (৳) Currency**:
+  - Standardized on Bangladeshi Taka (`৳`) for accurate local accounting.
+- **5 Core Agency Service Lines**:
+  1. `web-app`: Web Applications (React, Next.js, Node.js)
+  2. `ai-integration`: AI & LLM Systems (Gemini, RAG, Automation)
+  3. `saas-product`: SaaS Products & Cloud Platforms
+  4. `mobile-app`: Mobile Apps (iOS & Android)
+  5. `social-media-marketing`: Social Media Marketing & Campaigns
+- **Monthly & Yearly Worksheets Partitioning**:
+  - Automatically isolates projects month-by-month (e.g., `November 2026`, `December 2026`, `2027 Full Year`).
+  - Google Sheet database automatically mirrors these tabs with individual colored headers (`#93cf8c`).
+  - Quick "+ New Month Sheet" button directly in the table header.
+- **Spreadsheet-Style Table View with Sticky Columns**:
+  - **Sticky Left**: `Company Name` stays pinned while horizontally scrolling.
+  - **Sticky Right**: `Actions` (View, Edit, Delete) stays pinned.
+  - Inline confirmation switcher (`Signed Contract` vs `Proposal Accepted`).
+  - Interactive milestone check pills for instant payment toggling.
+- **Multi-Format Export & Downloads**:
+  - 📄 **UTF-8 CSV**: Ready for Excel, Google Drive, and database backups.
+  - 📊 **Formatted Excel (.xls)**: Opens directly in Microsoft Excel with headers and colors.
+  - 📋 **Clipboard TSV**: 1-click copy for pasting (`Ctrl+V`) directly into Google Sheets.
+- **Executive Analytics & Telemetry**:
+  - Filter by worksheet and date presets (Today, This Week, This Month, Past 6 Months, Past 1 Year, Custom Range).
+  - Revenue Realization vs Due ratio progress bars.
+  - Service portfolio distribution charts and project status breakdowns.
+- **Hassle-Free Authentication**:
+  - Instant Gmail access with automatically generated cross-device password.
+  - One-click Demo Mode (`demo@projectflow.agency` / `demo123`).
+  - Account Login for returning users on any browser.
 
+---
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🏗️ Architectural Diagrams
+
+### 1. System Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph Clients["Client Layer (Any Device)"]
+        D1["Desktop Browser (Chrome/Firefox/Safari)"]
+        M1["Mobile Browser (iOS / Android)"]
+        T1["Tablet / iPad"]
+    end
+
+    subgraph Edge["Vercel Global Edge Network"]
+        VercelCDN["Vercel Edge CDN"]
+        SPA["Vite + React 19 SPA (Single Page Application)"]
+    end
+
+    subgraph AppState["React Client State & Engine"]
+        CentralSync["Google Sheets Sync Engine (googleSheetsSync.ts)"]
+        FinancialEngine["Milestone & BDT Financial Calculator (storage.ts)"]
+        LocalCache["Transient Local Cache (Offline Fallback)"]
+    end
+
+    subgraph CentralDB["Central Cloud Database"]
+        Webhook["Google Apps Script Web App (doGet / doPost)"]
+        SheetDB[("Google Sheets Master Database")]
+        Tab1["November 2026 Tab"]
+        Tab2["December 2026 Tab"]
+        Tab3["Future Month Tabs..."]
+    end
+
+    D1 --> VercelCDN
+    M1 --> VercelCDN
+    T1 --> VercelCDN
+    VercelCDN --> SPA
+    SPA --> CentralSync
+    CentralSync <--> LocalCache
+    CentralSync -- "1. GET: Fetch Live Cloud Records" --> Webhook
+    CentralSync -- "2. POST: Auto-sync Add / Edit / Milestone" --> Webhook
+    Webhook <--> SheetDB
+    SheetDB --> Tab1
+    SheetDB --> Tab2
+    SheetDB --> Tab3
+```
+
+---
+
+### 2. Real-Time Data Sync & Hydration Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Agency Manager (Device A / B)
+    participant UI as React UI (App.tsx)
+    participant Engine as Sync Engine (googleSheetsSync.ts)
+    participant GAS as Google Apps Script Webhook
+    participant Sheet as Google Sheet Database
+
+    Note over User, Sheet: App Initialization & Startup
+    User->>UI: Opens Web App URL (Vercel)
+    UI->>Engine: loadCentralCloudData()
+    Engine->>GAS: GET /exec (fetchProjectsFromGoogleSheets)
+    GAS->>Sheet: Read all monthly worksheet tabs & rows
+    Sheet-->>GAS: Return rows & headers
+    GAS-->>Engine: JSON { status: "success", projects: [...], worksheets: [...] }
+    Engine-->>UI: setProjects(cloudProjects)
+    UI-->>User: Renders live synchronized records across all devices
+
+    Note over User, Sheet: Real-Time Mutation (Add / Edit / Pay Milestone)
+    User->>UI: Updates Milestone / Edits Project / Changes Status
+    UI->>UI: Optimistically updates UI state
+    UI->>Engine: Debounced syncProjectsToGoogleSheets(projects)
+    Engine->>GAS: POST /exec (JSON payload with partitioned worksheets)
+    GAS->>Sheet: Overwrites & styles tab rows with #93cf8c header
+    Sheet-->>GAS: Updated successfully
+    GAS-->>Engine: HTTP 200 { status: "success" }
+    Engine-->>UI: Set status 🟢 "Sheets Synced" (Last synced at HH:MM)
+```
+
+---
+
+### 3. 40%-30%-30% Milestone Payment State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> LeadOrProposal: Proposal Sent / Under Negotiation
+    LeadOrProposal --> Confirmed: Client Accepts Proposal / Signs Contract
+
+    state Confirmed {
+        [*] --> PendingAdvance: Contract Confirmed
+        PendingAdvance --> AdvancePaid: 40% Advance Payment Collected
+        AdvancePaid --> Development: Kickoff Project Execution
+        Development --> MidwayPaid: 70% Progress Reached & 30% Milestone Paid
+        MidwayPaid --> QA_Review: Final Testing, Staging & Client Review
+        QA_Review --> HandoverPaid: Client Approval & 30% Final Payment Paid
+        HandoverPaid --> Completed: Production Handover & Full Settlement
+    }
+
+    Completed --> [*]
+```
+
+---
+
+## 💻 Tech Stack
+
+| Layer | Technologies |
+| :--- | :--- |
+| **Frontend Framework** | [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/) |
+| **Bundler & Tooling** | [Vite 8](https://vite.dev/), `@vitejs/plugin-react` |
+| **Styling & Design System** | [Tailwind CSS v4](https://tailwindcss.com/), `@tailwindcss/vite` |
+| **Icons & Micro-animations** | [Lucide React](https://lucide.dev/), [Motion](https://motion.dev/) |
+| **Database & Cloud Storage** | [Google Sheets API](https://developers.google.com/sheets/api) via Google Apps Script Web App |
+| **Deployment Platform** | [Vercel](https://vercel.com/) (Serverless & Edge CDN) |
+
+---
+
+## 📁 Project Directory Structure
+
+```text
+projectflow-project-management-tool/
+├── .env                          # Local environment variables
+├── .env.example                  # Environment template & configuration guide
+├── vercel.json                   # Vercel deployment configuration & SPA rewrites
+├── package.json                  # Dependencies & npm scripts
+├── vite.config.ts                # Vite build configuration
+├── index.html                    # HTML entry point with dark theme
+└── src/
+    ├── main.tsx                  # Application bootstrap & title injection
+    ├── index.css                 # Global CSS & Tailwind CSS v4 directives
+    ├── App.tsx                   # Core application state, cloud hydration & routing
+    ├── config/
+    │   └── appConfig.ts          # Central branding & application configuration
+    ├── types/
+    │   └── project.ts            # TypeScript interfaces (Project, Milestone, AuthUser, etc.)
+    ├── utils/
+    │   ├── storage.ts            # Financial calculators, export generators (CSV, Excel, TSV)
+    │   └── googleSheetsSync.ts   # Google Sheets Webhook API engine & master Apps Script code
+    └── components/
+        ├── Navbar.tsx            # Clean top navigation with filter & profile popover
+        ├── LoginScreen.tsx       # Gatekeeper: Gmail sign-in, Demo mode & Account login
+        ├── ProjectTableView.tsx  # Sticky column table view with month switcher & export dropdown
+        ├── FilterAnalyticsModal.tsx # Filter modal with live financial telemetry charts
+        ├── ProfileSettingsModal.tsx # Profile popover with credentials & custom sheet tools
+        ├── MetricsOverview.tsx   # Top KPI cards (Total Value, Advance, Revenue, Due)
+        ├── ServiceTypeFilter.tsx # 5 service filters, search bar, sort & view mode switches
+        ├── ProjectModal.tsx      # Add & Edit project modal with milestone calculation
+        ├── ProjectDetailDrawer.tsx # Side drawer for comprehensive project telemetry
+        ├── ProjectKanbanView.tsx # Kanban drag-and-drop / stage management view
+        └── ProjectCardsView.tsx  # Grid card view of project portfolio
+```
+
+---
+
+## ⚙️ Google Sheets Central Database Setup
+
+Setting up your Google Sheets database takes under **3 minutes**:
+
+### Step 1: Create a Google Sheet
+1. Open [sheets.new](https://sheets.new) in your browser.
+2. Title your spreadsheet (e.g., `Agency Client Records`).
+3. Copy the **Spreadsheet ID** from the address bar:
+   `https://docs.google.com/spreadsheets/d/`**`1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms`**`/edit`
+   *(The string between `/d/` and `/edit` is your `VITE_GOOGLE_SHEET_ID`)*.
+
+### Step 2: Open Apps Script & Paste the Webhook Code
+1. In your Google Sheet, click **Extensions > Apps Script**.
+2. Delete any existing boilerplate in `Code.gs`.
+3. Paste the following production code:
+
+```javascript
+/**
+ * PROJECTFLOW GOOGLE SHEETS CENTRAL CLOUD DATABASE
+ * Deploy as a Web App to enable live 2-way sync across all devices.
+ */
+
+function doGet(e) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheets = ss.getSheets();
+    var allProjects = [];
+    var worksheets = [];
+
+    for (var s = 0; s < sheets.length; s++) {
+      var sheet = sheets[s];
+      var sheetName = sheet.getName();
+      if (!sheetName || sheetName === "Template" || sheetName.indexOf("_") === 0) continue;
+      worksheets.push(sheetName);
+
+      var data = sheet.getDataRange().getValues();
+      if (data.length <= 1) continue;
+
+      for (var r = 1; r < data.length; r++) {
+        var row = data[r];
+        if (!row[0] && !row[1]) continue;
+
+        var companyName = String(row[0] || "").trim();
+        var clientsName = String(row[1] || "").trim();
+        var companyType = String(row[2] || "Enterprise Client").trim();
+        var projectType = String(row[3] || "web-app").toLowerCase().replace(/\s+/g, '-').trim();
+        var startDate = row[4] instanceof Date ? row[4].toISOString().split('T')[0] : String(row[4] || "").trim();
+        var targetDeadline = row[5] instanceof Date ? row[5].toISOString().split('T')[0] : String(row[5] || "").trim();
+        var ws = String(row[6] || sheetName).trim();
+        var budgetEstimated = Number(row[7]) || 0;
+        var budgetConfirmed = Number(row[8]) || 0;
+        var confirmation = String(row[9] || "Signed Contract").trim();
+
+        var advRaw = String(row[10] || "").toUpperCase();
+        var midRaw = String(row[11] || "").toUpperCase();
+        var endRaw = String(row[12] || "").toUpperCase();
+
+        var advancePaid = advRaw.indexOf("PAID") !== -1;
+        var midwayPaid = midRaw.indexOf("PAID") !== -1;
+        var handoverPaid = endRaw.indexOf("PAID") !== -1;
+
+        var advanceAmount = Math.round(budgetConfirmed * 0.4);
+        var midwayAmount = Math.round(budgetConfirmed * 0.3);
+        var handoverAmount = budgetConfirmed - advanceAmount - midwayAmount;
+
+        var totalPaid = (advancePaid ? advanceAmount : 0) + (midwayPaid ? midwayAmount : 0) + (handoverPaid ? handoverAmount : 0);
+        var dueAmount = Math.max(0, budgetConfirmed - totalPaid);
+
+        var projectStatus = String(row[15] || (totalPaid === budgetConfirmed && budgetConfirmed > 0 ? "Completed" : "In Progress")).trim();
+        var progressPercent = Number(String(row[16] || "").replace("%", "")) || (projectStatus === "Completed" ? 100 : 50);
+        var deployment = String(row[17] || "").trim();
+        var clientPhone = String(row[18] || "").trim();
+        var clientWhatsapp = String(row[19] || clientPhone).trim();
+        var clientEmail = String(row[20] || "").trim();
+        var notes = String(row[21] || "").trim();
+
+        var id = "proj-" + sheetName.toLowerCase().replace(/[^a-z0-9]/g, '-') + "-" + r;
+
+        allProjects.push({
+          id: id,
+          companyName: companyName,
+          clientsName: clientsName,
+          companyType: companyType,
+          projectType: projectType,
+          budgetEstimated: budgetEstimated,
+          budgetConfirmed: budgetConfirmed,
+          confirmation: confirmation,
+          confirmationDate: startDate || new Date().toISOString().split('T')[0],
+          progressPercent: progressPercent,
+          milestones: {
+            advance40: { percent: 40, label: "40% Advance Payment", amount: advanceAmount, paid: advancePaid },
+            midway30: { percent: 30, label: "30% Milestone Payment", amount: midwayAmount, paid: midwayPaid },
+            handover30: { percent: 30, label: "30% Final Handover", amount: handoverAmount, paid: handoverPaid }
+          },
+          totalPaid: totalPaid,
+          dueAmount: dueAmount,
+          projectStatus: projectStatus,
+          deployment: deployment,
+          deploymentUrl: deployment,
+          clientEmail: clientEmail,
+          clientPhone: clientPhone,
+          clientWhatsapp: clientWhatsapp,
+          startDate: startDate,
+          targetDeadline: targetDeadline,
+          worksheet: ws,
+          notes: notes,
+          createdAt: startDate || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      projects: allProjects,
+      worksheets: worksheets
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  try {
+    var contents = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var projects = contents.projects || [];
+    var currency = contents.currency || "BDT";
+
+    var grouped = {};
+    for (var i = 0; i < projects.length; i++) {
+      var p = projects[i];
+      var ws = p.worksheet || "General";
+      if (!grouped[ws]) grouped[ws] = [];
+      grouped[ws].push(p);
+    }
+
+    var headers = [
+      "Company Name", "Clients Name", "Company Type", "Project Type",
+      "Start Date", "Target Deadline", "Worksheet",
+      "Budget Estimated (" + currency + ")", "Budget Confirmed (" + currency + ")",
+      "Confirmation", "40% Advance", "30% (at 70%)", "30% Handover",
+      "Total Paid (" + currency + ")", "Due (" + currency + ")",
+      "Project Status", "Progress %", "Deployment", "Client Phone", "WhatsApp", "Client Email", "Notes"
+    ];
+
+    for (var sheetName in grouped) {
+      var sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        sheet = ss.insertSheet(sheetName);
+      }
+
+      sheet.clearContents();
+      sheet.appendRow(headers);
+
+      var headerRange = sheet.getRange(1, 1, 1, headers.length);
+      headerRange.setBackground("#93cf8c").setFontColor("#090d16").setFontWeight("bold");
+
+      var items = grouped[sheetName];
+      for (var j = 0; j < items.length; j++) {
+        var item = items[j];
+        var advStatus = item.advancePaid ? "PAID (৳" + Number(item.advance40 || 0).toLocaleString() + ")" : "DUE (৳" + Number(item.advance40 || 0).toLocaleString() + ")";
+        var midStatus = item.midwayPaid ? "PAID (৳" + Number(item.midway30 || 0).toLocaleString() + ")" : "DUE (৳" + Number(item.midway30 || 0).toLocaleString() + ")";
+        var endStatus = item.handoverPaid ? "PAID (৳" + Number(item.handover30 || 0).toLocaleString() + ")" : "DUE (৳" + Number(item.handover30 || 0).toLocaleString() + ")";
+
+        sheet.appendRow([
+          item.companyName,
+          item.clientsName,
+          item.companyType,
+          item.projectType,
+          item.startDate || "",
+          item.targetDeadline || "",
+          sheetName,
+          item.budgetEstimated,
+          item.budgetConfirmed,
+          item.confirmation,
+          advStatus,
+          midStatus,
+          endStatus,
+          item.totalPaid,
+          item.dueAmount,
+          item.projectStatus,
+          (item.progressPercent || 0) + "%",
+          item.deployment || "",
+          item.clientPhone || "",
+          item.clientWhatsapp || "",
+          item.clientEmail || "",
+          item.notes || ""
+        ]);
+      }
+
+      for (var c = 1; c <= headers.length; c++) {
+        sheet.autoResizeColumn(c);
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", count: projects.length }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+```
+4. Click **Save** (<kbd>Ctrl + S</kbd>).
+
+### Step 3: Deploy as Web App
+1. Click **Deploy > New deployment**.
+2. Select type: **Web app** (via the ⚙️ gear icon).
+3. Set fields:
+   - **Execute as:** `Me (your-email@gmail.com)`
+   - **Who has access:** `Anyone` *(Crucial so the client web app can read and write)*.
+4. Click **Deploy**, authorize permissions, and copy the generated **Web app URL**:
+   `https://script.google.com/macros/s/AKfycb.../exec`
+
+### Step 4: Configure `.env`
+Open `.env` in the project root and insert your values:
+
+```env
+VITE_GOOGLE_SHEETS_WEBHOOK_URL="https://script.google.com/macros/s/YOUR_DEPLOYED_WEBAPP_ID/exec"
+VITE_GOOGLE_SHEET_ID="YOUR_SPREADSHEET_ID"
+VITE_APP_URL="http://localhost:5173"
+```
+
+---
+
+## 🚀 Local Development
+
+### 1. Clone & Install
+```bash
+git clone https://github.com/your-username/projectflow.git
+cd projectflow
+npm install
+```
+
+### 2. Run Local Development Server
+```bash
+npm run dev
+```
+The app will run at `http://localhost:5173` (or configured port).
+
+### 3. Type Checking & Production Build
+```bash
+# Check TypeScript types
+npm run lint
+
+# Build production bundle
+npm run build
+```
+
+---
+
+## 🌐 Vercel Deployment Guide
+
+Deploying ProjectFlow to Vercel takes less than **2 minutes**:
+
+### Method A: Deploy via Vercel Dashboard (Recommended)
+
+1. Push your repository to **GitHub**, **GitLab**, or **Bitbucket**.
+2. Go to [Vercel Dashboard](https://vercel.com/dashboard) and click **"Add New... > Project"**.
+3. Import your ProjectFlow repository.
+4. In the **Configure Project** screen:
+   - **Framework Preset**: `Vite`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+5. Expand **Environment Variables** and add the following keys:
+   - `VITE_GOOGLE_SHEETS_WEBHOOK_URL` = *(Your deployed Google Apps Script URL)*
+   - `VITE_GOOGLE_SHEET_ID` = *(Your Google Spreadsheet ID)*
+   - `VITE_APP_URL` = *(Your Vercel deployment URL, e.g. `https://projectflow.vercel.app`)*
+6. Click **Deploy**.
+
+### Method B: Deploy via Vercel CLI
+
+```bash
+# 1. Install Vercel CLI globally
+npm i -g vercel
+
+# 2. Login to your Vercel account
+vercel login
+
+# 3. Deploy to production with environment variables
+vercel --prod
+```
+
+### Verification After Deployment:
+- Open your production Vercel URL on your computer: add a project.
+- Open the exact same Vercel URL on your phone or in an incognito window.
+- Notice how all project records, status updates, and monthly tabs are **100% synchronized and identical** in real-time through your central Google Sheets database!
+
+---
+
+## 📄 License & Attribution
+
+Distributed under the MIT License. Developed with React 19, Tailwind CSS v4, and Google Sheets Cloud Database Engine.
