@@ -264,7 +264,7 @@ export const FilterAnalyticsModal: React.FC<FilterAnalyticsModalProps> = ({
                             className={`p-1 rounded transition cursor-pointer ${
                               isSelected ? 'text-slate-950 hover:bg-rose-400' : 'text-slate-400 hover:text-rose-400 hover:bg-slate-700'
                             }`}
-                            title="Delete Worksheet"
+                            title="Permanently Delete Worksheet and Records"
                           >
                             <Trash2 className="w-3 h-3" />
                           </button>
