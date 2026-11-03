@@ -499,8 +499,23 @@ export default function App() {
       const { totalPaid, dueAmount } = computeFinancials(p.budgetConfirmed, updatedMilestones);
 
       let updatedStatus = p.projectStatus;
-      if (milestoneKey === 'handover30' && willBePaid) {
-        updatedStatus = 'Completed';
+      let updatedProgress = p.progressPercent || 0;
+
+      if (milestoneKey === 'handover30') {
+        if (willBePaid) {
+          updatedStatus = 'Completed';
+          updatedProgress = 100;
+        } else if (updatedStatus === 'Completed') {
+          updatedStatus = '70% Done';
+          if (updatedProgress >= 100) updatedProgress = 70;
+        }
+      } else if (milestoneKey === 'midway30') {
+        if (willBePaid) {
+          if (updatedProgress < 70) updatedProgress = 70;
+          if (updatedStatus === 'In Progress' || updatedStatus === 'Confirmed' || updatedStatus === 'Lead') {
+            updatedStatus = '70% Done';
+          }
+        }
       }
 
       const updatedProject = {
@@ -509,6 +524,7 @@ export default function App() {
         totalPaid,
         dueAmount,
         projectStatus: updatedStatus,
+        progressPercent: updatedProgress,
         updatedAt: new Date().toISOString(),
       };
 
@@ -523,10 +539,42 @@ export default function App() {
   const handleQuickUpdateStatus = (projectId: string, newStatus: ProjectStatus) => {
     setProjects(prev => prev.map(p => {
       if (p.id !== projectId) return p;
+      let newProgress = p.progressPercent || 0;
+      if (newStatus === 'Completed') {
+        newProgress = 100;
+      } else if (newStatus === '70% Done') {
+        newProgress = Math.max(70, p.progressPercent || 0);
+      } else if (newStatus === 'Confirmed' || newStatus === 'Lead') {
+        if ((p.progressPercent || 0) === 100) newProgress = 0;
+      }
       const updated = {
         ...p,
         projectStatus: newStatus,
-        progressPercent: newStatus === 'Completed' ? 100 : newStatus === '70% Done' ? 70 : p.progressPercent,
+        progressPercent: newProgress,
+        updatedAt: new Date().toISOString()
+      };
+      if (viewingProject && viewingProject.id === projectId) {
+        setViewingProject(updated);
+      }
+      return updated;
+    }));
+  };
+
+  const handleQuickUpdateProgress = (projectId: string, newProgress: number) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      let updatedStatus = p.projectStatus;
+      if (newProgress >= 100) {
+        updatedStatus = 'Completed';
+      } else if (newProgress >= 70 && updatedStatus !== 'Completed') {
+        updatedStatus = '70% Done';
+      } else if (newProgress > 0 && (updatedStatus === 'Confirmed' || updatedStatus === 'Lead')) {
+        updatedStatus = 'In Progress';
+      }
+      const updated = {
+        ...p,
+        progressPercent: newProgress,
+        projectStatus: updatedStatus,
         updatedAt: new Date().toISOString()
       };
       if (viewingProject && viewingProject.id === projectId) {
@@ -632,6 +680,7 @@ export default function App() {
             onDeleteProject={handleDeleteProject}
             onToggleMilestone={handleToggleMilestone}
             onQuickUpdateStatus={handleQuickUpdateStatus}
+            onQuickUpdateProgress={handleQuickUpdateProgress}
             onQuickUpdateConfirmation={handleQuickUpdateConfirmation}
           />
         )}
