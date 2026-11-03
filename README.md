@@ -242,11 +242,59 @@ function doGet(e) {
     var allProjects = [];
     var worksheets = [];
 
+    // Safe date formatter to avoid timezone day shifts
+    function formatDateClean(val) {
+      if (!val) return "";
+      if (val instanceof Date) {
+        if (isNaN(val.getTime())) return "";
+        var year = val.getFullYear();
+        var month = String(val.getMonth() + 1);
+        if (month.length < 2) month = "0" + month;
+        var day = String(val.getDate());
+        if (day.length < 2) day = "0" + day;
+        return year + "-" + month + "-" + day;
+      }
+      var str = String(val).trim();
+      var match = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (match) {
+        var m = match[2].length < 2 ? "0" + match[2] : match[2];
+        var d = match[3].length < 2 ? "0" + match[3] : match[3];
+        return match[1] + "-" + m + "-" + d;
+      }
+      var slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (slashMatch) {
+        var sd = slashMatch[1].length < 2 ? "0" + slashMatch[1] : slashMatch[1];
+        var sm = slashMatch[2].length < 2 ? "0" + slashMatch[2] : slashMatch[2];
+        return slashMatch[3] + "-" + sm + "-" + sd;
+      }
+      return str;
+    }
+
+    // Normalizes worksheet name to avoid Google Sheets Date object conversions
+    function formatWorksheetClean(val, fallback) {
+      var str = String(val || "").trim();
+      if (!str) return fallback || "General";
+      var months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      var strLower = str.toLowerCase();
+      for (var mi = 0; mi < months.length; mi++) {
+        var mName = months[mi].toLowerCase();
+        var mShort = mName.substring(0, 3);
+        if (strLower.indexOf(mName) !== -1 || strLower.indexOf(mShort) !== -1) {
+          var yMatch = str.match(/\b(20\d\d)\b/);
+          if (yMatch) {
+            return months[mi] + " " + yMatch[1];
+          }
+        }
+      }
+      return fallback || str;
+    }
+
     for (var s = 0; s < sheets.length; s++) {
       var sheet = sheets[s];
-      var sheetName = sheet.getName();
-      if (!sheetName || sheetName === "Template" || sheetName.indexOf("_") === 0) continue;
-      worksheets.push(sheetName);
+      var rawSheetName = sheet.getName();
+      if (!rawSheetName || rawSheetName === "Template" || rawSheetName.indexOf("_") === 0) continue;
+      var cleanSheetName = formatWorksheetClean(rawSheetName, rawSheetName);
+      worksheets.push(cleanSheetName);
 
       var data = sheet.getDataRange().getValues();
       if (data.length <= 1) continue;
@@ -259,9 +307,9 @@ function doGet(e) {
         var clientsName = String(row[1] || "").trim();
         var companyType = String(row[2] || "Enterprise Client").trim();
         var projectType = String(row[3] || "web-app").toLowerCase().replace(/\s+/g, '-').trim();
-        var startDate = row[4] instanceof Date ? row[4].toISOString().split('T')[0] : String(row[4] || "").trim();
-        var targetDeadline = row[5] instanceof Date ? row[5].toISOString().split('T')[0] : String(row[5] || "").trim();
-        var ws = sheetName;
+        var startDate = formatDateClean(row[4]);
+        var targetDeadline = formatDateClean(row[5]);
+        var ws = formatWorksheetClean(row[6], cleanSheetName);
         var budgetEstimated = Number(row[7]) || 0;
         var budgetConfirmed = Number(row[8]) || 0;
         var confirmation = String(row[9] || "Signed Contract").trim();
@@ -290,7 +338,7 @@ function doGet(e) {
         var clientEmail = String(row[20] || "").trim();
         var notes = String(row[21] || "").trim();
 
-        var id = "proj-" + sheetName.toLowerCase().replace(/[^a-z0-9]/g, '-') + "-" + r;
+        var id = "proj-" + cleanSheetName.toLowerCase().replace(/[^a-z0-9]/g, '-') + "-" + r;
 
         allProjects.push({
           id: id,
@@ -301,7 +349,7 @@ function doGet(e) {
           budgetEstimated: budgetEstimated,
           budgetConfirmed: budgetConfirmed,
           confirmation: confirmation,
-          confirmationDate: startDate || new Date().toISOString().split('T')[0],
+          confirmationDate: startDate || formatDateClean(new Date()),
           progressPercent: progressPercent,
           milestones: {
             advance40: {
@@ -336,8 +384,8 @@ function doGet(e) {
           targetDeadline: targetDeadline,
           worksheet: ws,
           notes: notes,
-          createdAt: startDate || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          createdAt: startDate || formatDateClean(new Date()),
+          updatedAt: formatDateClean(new Date())
         });
       }
     }
