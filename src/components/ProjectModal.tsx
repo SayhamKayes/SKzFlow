@@ -26,6 +26,7 @@ interface ProjectModalProps {
   onSave: (project: Project) => void;
   initialProject?: Project | null;
   worksheets?: string[];
+  activeWorksheet?: string;
 }
 
 export const ProjectModal: React.FC<ProjectModalProps> = ({
@@ -33,9 +34,14 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onClose,
   onSave,
   initialProject,
-  worksheets = ['All Worksheets', 'November 2026', 'October 2026', 'December 2026']
+  worksheets = ['All Worksheets', getCurrentMonthWorksheet()],
+  activeWorksheet
 }) => {
   const currentRunningMonth = getCurrentMonthWorksheet();
+  const effectiveDefaultWorksheet = (activeWorksheet && activeWorksheet !== 'All Worksheets')
+    ? activeWorksheet
+    : currentRunningMonth;
+
   const [companyName, setCompanyName] = useState('');
   const [clientsName, setClientsName] = useState('');
   const [companyType, setCompanyType] = useState('E-Commerce');
@@ -65,8 +71,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [targetDeadline, setTargetDeadline] = useState('');
   
-  // Worksheet - defaults to current running month
-  const [worksheet, setWorksheet] = useState(currentRunningMonth);
+  // Worksheet - defaults directly to current active view worksheet
+  const [worksheet, setWorksheet] = useState(effectiveDefaultWorksheet);
+  const [customWorksheetName, setCustomWorksheetName] = useState('');
   
   // Notes
   const [notes, setNotes] = useState('');
@@ -98,7 +105,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       
       setStartDate(initialProject.startDate || new Date().toISOString().split('T')[0]);
       setTargetDeadline(initialProject.targetDeadline || '');
-      setWorksheet(initialProject.worksheet || currentRunningMonth);
+      setWorksheet(initialProject.worksheet || effectiveDefaultWorksheet);
+      setCustomWorksheetName('');
       setNotes(initialProject.notes || '');
 
       setAdvancePaid(initialProject.milestones?.advance40?.paid ?? false);
@@ -124,13 +132,14 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setClientEmail('');
       setStartDate(new Date().toISOString().split('T')[0]);
       setTargetDeadline('');
-      setWorksheet(currentRunningMonth);
+      setWorksheet(effectiveDefaultWorksheet);
+      setCustomWorksheetName('');
       setNotes('');
       setAdvancePaid(true); // default advance collected on kickoff
       setMidwayPaid(false);
       setHandoverPaid(false);
     }
-  }, [initialProject, isOpen, currentRunningMonth]);
+  }, [initialProject, isOpen, effectiveDefaultWorksheet]);
 
   if (!isOpen) return null;
 
@@ -183,6 +192,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     e.preventDefault();
     if (!companyName.trim()) return;
 
+    const resolvedWorksheet = (worksheet === 'Custom Worksheet' && customWorksheetName.trim())
+      ? customWorksheetName.trim()
+      : (worksheet === 'Custom Worksheet' ? effectiveDefaultWorksheet : worksheet);
+
     const updatedProject: Project = {
       id: initialProject ? initialProject.id : `proj-${Date.now()}`,
       companyName: companyName.trim(),
@@ -205,7 +218,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       clientEmail: clientEmail.trim(),
       startDate,
       targetDeadline,
-      worksheet,
+      worksheet: resolvedWorksheet,
       notes: notes.trim(),
       createdAt: initialProject ? initialProject.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -327,8 +340,21 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                   {worksheets.filter(w => w !== 'All Worksheets').map(ws => (
                     <option key={ws} value={ws}>{ws}</option>
                   ))}
-                  <option value="Custom Worksheet">Other / New Sheet</option>
+                  {worksheet && worksheet !== 'Custom Worksheet' && !worksheets.includes(worksheet) && (
+                    <option key={worksheet} value={worksheet}>{worksheet}</option>
+                  )}
+                  <option value="Custom Worksheet">+ Create New Sheet</option>
                 </select>
+                {worksheet === 'Custom Worksheet' && (
+                  <input
+                    type="text"
+                    placeholder="Enter sheet name (e.g. October 2026)"
+                    value={customWorksheetName}
+                    onChange={(e) => setCustomWorksheetName(e.target.value)}
+                    className="mt-2 w-full px-3 py-1.5 text-xs bg-slate-900 border border-emerald-500 rounded-lg text-white placeholder-slate-500 focus:outline-none"
+                    autoFocus
+                  />
+                )}
               </div>
 
               {/* Confirmation Selection (2 options: Signed Contract / Proposal Accepted) */}
