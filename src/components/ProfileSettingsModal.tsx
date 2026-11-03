@@ -34,6 +34,8 @@ interface ProfileSettingsModalProps {
   projects: Project[];
   syncStatus?: SyncStatusInfo;
   onUpdateUser: (updatedUser: AuthUser) => void;
+  onRefreshCloud?: () => Promise<void> | void;
+  isRefreshingCloud?: boolean;
 }
 
 export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
@@ -43,7 +45,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
   onSignOut,
   projects,
   syncStatus,
-  onUpdateUser
+  onUpdateUser,
+  onRefreshCloud,
+  isRefreshingCloud = false
 }) => {
   if (!isOpen || !authUser) return null;
 
@@ -72,7 +76,7 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     }
   };
 
-  const handleSaveCustomSettings = () => {
+  const handleSaveCustomSettings = async () => {
     saveWebhookUrl(customWebhook.trim());
     const updated: AuthUser = {
       ...authUser,
@@ -81,6 +85,9 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     saveAuthUser(updated);
     onUpdateUser(updated);
     setIsSavingCustom(true);
+    if (onRefreshCloud) {
+      await onRefreshCloud();
+    }
     setTimeout(() => setIsSavingCustom(false), 2000);
   };
 
@@ -88,10 +95,28 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
     setIsSyncing(true);
     setSyncFeedback(null);
     try {
+      if (onRefreshCloud) {
+        await onRefreshCloud();
+      }
       const res = await syncProjectsToGoogleSheets(projects, authUser);
       setSyncFeedback(res.message);
     } catch (err: any) {
       setSyncFeedback(err?.message || 'Sync failed.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleRefreshFromCloud = async () => {
+    setIsSyncing(true);
+    setSyncFeedback(null);
+    try {
+      if (onRefreshCloud) {
+        await onRefreshCloud();
+        setSyncFeedback('Successfully pulled latest records from Google Sheets database!');
+      }
+    } catch (err: any) {
+      setSyncFeedback(err?.message || 'Failed to pull from Google Sheets.');
     } finally {
       setIsSyncing(false);
     }
@@ -262,19 +287,31 @@ export const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
                   />
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <button
-                    onClick={handleTriggerSyncNow}
-                    disabled={isSyncing}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 font-semibold flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                    <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
-                  </button>
+                <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handleTriggerSyncNow}
+                      disabled={isSyncing || isRefreshingCloud}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 font-semibold flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                      title="Run two-way sync: Pull latest records from Google Sheets and sync local updates"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncing || isRefreshingCloud ? 'animate-spin' : ''}`} />
+                      <span>{isSyncing || isRefreshingCloud ? 'Syncing...' : 'Sync Now'}</span>
+                    </button>
+
+                    <button
+                      onClick={handleRefreshFromCloud}
+                      disabled={isSyncing || isRefreshingCloud}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-semibold flex items-center space-x-1 cursor-pointer disabled:opacity-50"
+                      title="Pull all live records directly from Google Sheets"
+                    >
+                      <span>Pull Data</span>
+                    </button>
+                  </div>
 
                   <button
                     onClick={handleSaveCustomSettings}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 text-white border border-slate-700 font-semibold cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold cursor-pointer"
                   >
                     {isSavingCustom ? 'Saved!' : 'Save Settings'}
                   </button>
