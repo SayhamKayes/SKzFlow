@@ -373,13 +373,13 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
               </th>
 
               <th className="py-2.5 px-3 whitespace-nowrap text-center min-w-[130px] bg-[#87c480]">
-                40% Advance
+                40% / 50% Advance
               </th>
               <th className="py-2.5 px-3 whitespace-nowrap text-center min-w-[130px] bg-[#87c480]">
-                30% (70% Work)
+                30% (at 70%)
               </th>
               <th className="py-2.5 px-3 whitespace-nowrap text-center min-w-[130px] bg-[#87c480]">
-                30% Handover
+                30% / 50% Handover
               </th>
               <th className="py-2.5 px-3 whitespace-nowrap text-right min-w-[110px] bg-[#7dbb76]">
                 Total Paid
@@ -408,6 +408,7 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
               const mid = proj.milestones.midway30;
               const fin = proj.milestones.handover30;
               const isEven = idx % 2 === 0;
+              const isSocial = proj.projectType === 'social-media-marketing' || proj.milestones?.model === '50-50';
 
               return (
                 <tr 
@@ -523,27 +524,33 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
                     </button>
                   </td>
 
-                  {/* 30% Milestone Payment (at 70% Work) */}
+                  {/* 30% Milestone Payment (at 70% Work) / N/A for Social Media */}
                   <td className="py-2 px-2 text-center">
-                    <button
-                      onClick={() => onToggleMilestone(proj.id, 'midway30')}
-                      title={mid.paid ? `Paid: ${mid.paidDate || 'Yes'}. Click to toggle` : 'Mark 30% Midway as Paid'}
-                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center justify-between w-full border cursor-pointer ${
-                        mid.paid
-                          ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/80 hover:bg-emerald-900/80'
-                          : proj.progressPercent >= 70
-                          ? 'bg-rose-950/80 text-rose-300 border-rose-700 hover:bg-rose-900/90 animate-pulse font-extrabold'
-                          : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750'
-                      }`}
-                    >
-                      <span className="flex items-center">
-                        {proj.progressPercent >= 70 && !mid.paid && (
-                          <AlertTriangle className="w-2.5 h-2.5 mr-0.5 text-rose-400 inline" />
-                        )}
-                        {mid.paid ? 'PAID' : 'DUE'}
+                    {isSocial ? (
+                      <span className="px-2 py-1 rounded-md text-[11px] font-mono text-slate-500 bg-slate-900 border border-slate-800/80 inline-block w-full">
+                        N/A (50-50)
                       </span>
-                      <span className="font-mono text-[10px]">{formatMoney(mid.amount)}</span>
-                    </button>
+                    ) : (
+                      <button
+                        onClick={() => onToggleMilestone(proj.id, 'midway30')}
+                        title={mid.paid ? `Paid: ${mid.paidDate || 'Yes'}. Click to toggle` : 'Mark 30% Midway as Paid'}
+                        className={`px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center justify-between w-full border cursor-pointer ${
+                          mid.paid
+                            ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/80 hover:bg-emerald-900/80'
+                            : proj.progressPercent >= 70
+                            ? 'bg-rose-950/80 text-rose-300 border-rose-700 hover:bg-rose-900/90 animate-pulse font-extrabold'
+                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-750'
+                        }`}
+                      >
+                        <span className="flex items-center">
+                          {proj.progressPercent >= 70 && !mid.paid && (
+                            <AlertTriangle className="w-2.5 h-2.5 mr-0.5 text-rose-400 inline" />
+                          )}
+                          {mid.paid ? 'PAID' : 'DUE'}
+                        </span>
+                        <span className="font-mono text-[10px]">{formatMoney(mid.amount)}</span>
+                      </button>
+                    )}
                   </td>
 
                   {/* 30% Final Payment (Handover) */}
