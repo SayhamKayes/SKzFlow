@@ -44,8 +44,22 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>(() => loadProjects());
   const [worksheets, setWorksheets] = useState<string[]>(() => loadWorksheets());
   
-  // Worksheet and Range Filters - defaults to current running month (e.g. November 2026)
-  const [selectedWorksheet, setSelectedWorksheet] = useState<string>(() => getCurrentMonthWorksheet());
+  // Worksheet and Range Filters - persisted across reloads and tab closes
+  const ACTIVE_WS_KEY = 'projectflow_selected_worksheet';
+  const [selectedWorksheet, setSelectedWorksheet] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_WS_KEY);
+      if (saved && saved.trim()) return saved.trim();
+    } catch {}
+    return getCurrentMonthWorksheet();
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVE_WS_KEY, selectedWorksheet);
+    } catch {}
+  }, [selectedWorksheet]);
+
   const [dateRange, setDateRange] = useState<DateRangePreset>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -89,14 +103,38 @@ export default function App() {
       if (res.success && Array.isArray(res.projects)) {
         setProjects(res.projects);
         saveProjects(res.projects);
-        const effectiveWs = res.worksheets && res.worksheets.length > 0 ? res.worksheets : worksheets;
-        if (res.worksheets && res.worksheets.length > 0) {
-          setWorksheets(res.worksheets);
-          saveWorksheets(res.worksheets);
-        }
+
+        // Derive active worksheets list from cloud worksheets and loaded projects
+        const projectWorksheets = Array.from(
+          new Set(res.projects.map(p => p.worksheet).filter(Boolean))
+        ) as string[];
+        const currentMonth = getCurrentMonthWorksheet();
+        const mergedWorksheets = Array.from(
+          new Set([
+            'All Worksheets',
+            ...(res.worksheets || []),
+            ...projectWorksheets,
+            currentMonth
+          ])
+        ).filter(w => Boolean(w) && w !== 'Untitled Worksheet');
+
+        setWorksheets(mergedWorksheets);
+        saveWorksheets(mergedWorksheets);
+
+        // Auto-select worksheet if current selection has 0 records but another worksheet has data
+        setSelectedWorksheet(current => {
+          if (current === 'All Worksheets') return current;
+          const hasInCurrent = res.projects!.some(p => isWorksheetMatch(p, current));
+          if (hasInCurrent) return current;
+          if (projectWorksheets.length > 0) {
+            return projectWorksheets[0];
+          }
+          return current;
+        });
+
         lastSyncedSnapshotRef.current = JSON.stringify({
           projects: res.projects,
-          worksheets: effectiveWs
+          worksheets: mergedWorksheets
         });
         hasHydratedCloudRef.current = true;
         setSyncStatus({
@@ -304,13 +342,15 @@ export default function App() {
     return true;
   };
 
-  // Check if project matches worksheet filter
+  // Check if project matches worksheet filter (with whitespace/case normalization)
   const isWorksheetMatch = (project: Project, ws: string): boolean => {
     if (ws === 'All Worksheets') return true;
     if (ws === 'Untitled Worksheet') {
       return !project.worksheet || project.worksheet === 'Untitled Worksheet';
     }
-    return project.worksheet === ws;
+    const pWs = String(project.worksheet || '').trim().toLowerCase();
+    const targetWs = String(ws || '').trim().toLowerCase();
+    return pWs === targetWs;
   };
 
   // 1. Projects filtered by Worksheet and Date Range (powers KPIs and service counts)
