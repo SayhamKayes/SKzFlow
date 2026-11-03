@@ -15,7 +15,8 @@ import {
   Layers,
   ArrowRight,
   Sparkles,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 
 interface FilterAnalyticsModalProps {
@@ -27,6 +28,7 @@ interface FilterAnalyticsModalProps {
   selectedWorksheet: string;
   onSelectWorksheet: (ws: string) => void;
   onRenameWorksheet: (oldName: string, newName: string) => void;
+  onDeleteWorksheet: (name: string) => void;
 
   // Date Range
   dateRange: DateRangePreset;
@@ -48,6 +50,7 @@ export const FilterAnalyticsModal: React.FC<FilterAnalyticsModalProps> = ({
   selectedWorksheet,
   onSelectWorksheet,
   onRenameWorksheet,
+  onDeleteWorksheet,
   dateRange,
   onSelectDateRange,
   customStartDate,
@@ -61,6 +64,7 @@ export const FilterAnalyticsModal: React.FC<FilterAnalyticsModalProps> = ({
 
   const [editingWs, setEditingWs] = useState<string | null>(null);
   const [renamedWs, setRenamedWs] = useState('');
+  const [confirmDeleteWs, setConfirmDeleteWs] = useState<string | null>(null);
 
   const handleStartRename = (ws: string) => {
     setEditingWs(ws);
@@ -157,7 +161,7 @@ export const FilterAnalyticsModal: React.FC<FilterAnalyticsModalProps> = ({
           <div className="bg-slate-850 p-4 rounded-xl border border-slate-800 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center">
-                <FileSpreadsheet className="w-4 h-4 mr-1.5 text-amber-400" />
+                <FileSpreadsheet className="w-4 h-4 mr-1.5 text-emerald-400" />
                 Select Monthly / Yearly Worksheet
               </span>
               <span className="text-[11px] text-slate-400">
@@ -215,18 +219,57 @@ export const FilterAnalyticsModal: React.FC<FilterAnalyticsModalProps> = ({
                     </div>
 
                     {ws !== 'All Worksheets' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartRename(ws);
-                        }}
-                        className={`p-1 rounded opacity-0 group-hover:opacity-100 transition ${
-                          isSelected ? 'text-slate-950 hover:bg-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-700'
-                        }`}
-                        title="Rename Worksheet"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
+                      confirmDeleteWs === ws ? (
+                        <div className="flex items-center space-x-1 p-0.5 bg-rose-950 border border-rose-500 rounded text-[10px]" onClick={(e) => e.stopPropagation()}>
+                          <span className="text-rose-300 font-semibold text-[10px]">Delete?</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteWorksheet(ws);
+                              setConfirmDeleteWs(null);
+                            }}
+                            className="px-1.5 py-0.5 bg-rose-500 hover:bg-rose-400 text-slate-950 font-bold rounded cursor-pointer"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteWs(null);
+                            }}
+                            className="px-1 py-0.5 text-slate-400 hover:text-white cursor-pointer"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartRename(ws);
+                            }}
+                            className={`p-1 rounded transition cursor-pointer ${
+                              isSelected ? 'text-slate-950 hover:bg-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                            }`}
+                            title="Rename Worksheet"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteWs(ws);
+                            }}
+                            className={`p-1 rounded transition cursor-pointer ${
+                              isSelected ? 'text-slate-950 hover:bg-rose-400' : 'text-slate-400 hover:text-rose-400 hover:bg-slate-700'
+                            }`}
+                            title="Delete Worksheet"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )
                     )}
                   </div>
                 );
@@ -237,7 +280,7 @@ export const FilterAnalyticsModal: React.FC<FilterAnalyticsModalProps> = ({
           {/* Section 2: Date Range Filter Bar */}
           <div className="bg-slate-850 p-4 rounded-xl border border-slate-800 space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center">
-              <Filter className="w-4 h-4 mr-1.5 text-amber-400" />
+              <Filter className="w-4 h-4 mr-1.5 text-emerald-400" />
               Filter By Date Range
             </span>
 
@@ -250,7 +293,7 @@ export const FilterAnalyticsModal: React.FC<FilterAnalyticsModalProps> = ({
                     onClick={() => onSelectDateRange(btn.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer flex items-center space-x-1.5 ${
                       isSelected
-                        ? 'bg-amber-500 text-slate-950 font-extrabold shadow-md shadow-amber-500/25'
+                        ? 'bg-emerald-500 text-slate-950 font-extrabold border border-emerald-400 shadow-md shadow-emerald-500/20'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-750 hover:text-white border border-slate-700'
                     }`}
                   >
@@ -265,7 +308,7 @@ export const FilterAnalyticsModal: React.FC<FilterAnalyticsModalProps> = ({
             {dateRange === 'custom' && (
               <div className="flex items-center space-x-3 pt-2 bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex-wrap gap-2 text-xs">
                 <span className="text-slate-300 font-semibold flex items-center">
-                  <Calendar className="w-3.5 h-3.5 mr-1 text-amber-400" />
+                  <Calendar className="w-3.5 h-3.5 mr-1 text-emerald-400" />
                   Custom Period:
                 </span>
                 <div className="flex items-center space-x-1">
