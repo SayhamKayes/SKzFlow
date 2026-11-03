@@ -48,6 +48,7 @@ interface ProjectTableViewProps {
   onDeleteProject: (projectId: string) => void;
   onToggleMilestone: (projectId: string, milestoneKey: 'advance40' | 'midway30' | 'handover30') => void;
   onQuickUpdateStatus: (projectId: string, newStatus: ProjectStatus) => void;
+  onQuickUpdateProgress?: (projectId: string, newProgress: number) => void;
   onQuickUpdateConfirmation?: (projectId: string, newConfirmation: string) => void;
 }
 
@@ -87,6 +88,7 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
   onDeleteProject,
   onToggleMilestone,
   onQuickUpdateStatus,
+  onQuickUpdateProgress,
   onQuickUpdateConfirmation
 }) => {
   const [isAddingWs, setIsAddingWs] = useState(false);
@@ -393,7 +395,10 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
               <th className="py-2.5 px-3 whitespace-nowrap min-w-[125px]">
                 Project Status
               </th>
-              <th className="py-2.5 px-3 whitespace-nowrap min-w-[150px]">
+              <th className="py-2.5 px-3 whitespace-nowrap text-center min-w-[130px]">
+                Progress %
+              </th>
+              <th className="py-2.5 px-3 whitespace-nowrap min-w-[160px]">
                 Deployment
               </th>
 
@@ -601,24 +606,69 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
                     </select>
                   </td>
 
-                  {/* Deployment */}
-                  <td className="py-2 px-3">
-                    {proj.deploymentUrl ? (
-                      <a
-                        href={proj.deploymentUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center text-blue-400 hover:text-blue-300 hover:underline max-w-[140px] truncate"
-                        title={proj.deploymentUrl}
-                      >
-                        <span className="truncate">{proj.deployment || 'Live URL'}</span>
-                        <ExternalLink className="w-3 h-3 ml-1 shrink-0" />
-                      </a>
+                  {/* Work Progress % */}
+                  <td className="py-2 px-3 text-center">
+                    {onQuickUpdateProgress ? (
+                      <div className="flex items-center justify-center space-x-1.5">
+                        <div className="w-12 bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700/60 hidden xl:block">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              (proj.progressPercent || 0) >= 100 
+                                ? 'bg-emerald-500' 
+                                : (proj.progressPercent || 0) >= 70 
+                                ? 'bg-indigo-500' 
+                                : 'bg-blue-500'
+                            }`}
+                            style={{ width: `${Math.min(100, Math.max(0, proj.progressPercent || 0))}%` }}
+                          />
+                        </div>
+                        <select
+                          value={proj.progressPercent || 0}
+                          onChange={(e) => onQuickUpdateProgress(proj.id, Number(e.target.value))}
+                          className="bg-slate-800 text-[11px] font-bold text-slate-200 border border-slate-700 rounded px-1.5 py-0.5 hover:border-emerald-500 cursor-pointer focus:outline-none font-mono"
+                          title="Quick update progress percentage"
+                        >
+                          <option value={0}>0%</option>
+                          <option value={10}>10%</option>
+                          <option value={25}>25%</option>
+                          <option value={40}>40%</option>
+                          <option value={50}>50%</option>
+                          <option value={70}>70%</option>
+                          <option value={85}>85%</option>
+                          <option value={100}>100%</option>
+                          {![0, 10, 25, 40, 50, 70, 85, 100].includes(proj.progressPercent || 0) && (
+                            <option value={proj.progressPercent}>{proj.progressPercent}%</option>
+                          )}
+                        </select>
+                      </div>
                     ) : (
-                      <span className="text-slate-400 text-[11px]">
-                        {proj.deployment || 'Not Deployed'}
-                      </span>
+                      <span className="font-mono font-bold text-xs text-slate-200">{proj.progressPercent || 0}%</span>
                     )}
+                  </td>
+
+                  {/* Deployment Platform & Live URL */}
+                  <td className="py-2 px-3">
+                    <div className="flex flex-col space-y-0.5">
+                      {proj.deploymentUrl ? (
+                        <a
+                          href={proj.deploymentUrl.startsWith('http') ? proj.deploymentUrl : `https://${proj.deploymentUrl}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center text-blue-400 hover:text-blue-300 hover:underline max-w-[150px] truncate font-medium text-xs"
+                          title={proj.deploymentUrl}
+                        >
+                          <span className="truncate">{proj.deploymentUrl.replace(/^https?:\/\//, '')}</span>
+                          <ExternalLink className="w-3 h-3 ml-1 shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="text-slate-500 text-[11px] italic">No live URL</span>
+                      )}
+                      {proj.deployment && (
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {proj.deployment}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* FIXED RIGHT: Actions */}
