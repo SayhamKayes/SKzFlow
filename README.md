@@ -18,11 +18,15 @@
   - Eliminates device-isolated storage. All client records load directly from and persist to a centralized Google Sheet.
   - Changes made on a desktop immediately reflect on mobile browsers and across team members.
   - Transient offline cache fallback ensures fast initial paint even under intermittent connectivity.
-- **40% - 30% - 30% Milestone Financial Engine**:
-  - Automatically splits project budgets into standard agency milestones:
-    - **40% Advance Payment**: Collected upfront to kick off the project.
-    - **30% Milestone Payment**: Billed upon 70% project completion.
-    - **30% Final Payment**: Billed upon final handover and acceptance.
+- **Dynamic Milestone Financial Engine (40-30-30 & 50-50)**:
+  - Intelligently splits project budgets into agency milestones based on service type:
+    - **Standard Projects (Web App, SaaS, AI, Mobile)**:
+      - **40% Advance Payment**: Collected upfront to kick off the project.
+      - **30% Milestone Payment**: Billed upon 70% project completion.
+      - **30% Final Payment**: Billed upon final handover and acceptance.
+    - **Social Media Marketing**:
+      - **50% Advance Payment**: Collected at month start / onboarding.
+      - **50% Month-End Payment**: Billed upon month-end reporting and campaign completion.
   - Dynamically calculates Total Paid, Outstanding Due, and Collection Rate % in real-time.
 - **Pure BDT (৳) Currency**:
   - Standardized on Bangladeshi Taka (`৳`) for accurate local accounting.
@@ -270,11 +274,12 @@ function doGet(e) {
         var midwayPaid = midRaw.indexOf("PAID") !== -1;
         var handoverPaid = endRaw.indexOf("PAID") !== -1;
 
-        var advanceAmount = Math.round(budgetConfirmed * 0.4);
-        var midwayAmount = Math.round(budgetConfirmed * 0.3);
+        var isSocial = projectType === "social-media-marketing";
+        var advanceAmount = isSocial ? Math.round(budgetConfirmed * 0.5) : Math.round(budgetConfirmed * 0.4);
+        var midwayAmount = isSocial ? 0 : Math.round(budgetConfirmed * 0.3);
         var handoverAmount = budgetConfirmed - advanceAmount - midwayAmount;
 
-        var totalPaid = (advancePaid ? advanceAmount : 0) + (midwayPaid ? midwayAmount : 0) + (handoverPaid ? handoverAmount : 0);
+        var totalPaid = (advancePaid ? advanceAmount : 0) + (isSocial ? 0 : (midwayPaid ? midwayAmount : 0)) + (handoverPaid ? handoverAmount : 0);
         var dueAmount = Math.max(0, budgetConfirmed - totalPaid);
 
         var projectStatus = String(row[15] || (totalPaid === budgetConfirmed && budgetConfirmed > 0 ? "Completed" : "In Progress")).trim();
@@ -299,9 +304,25 @@ function doGet(e) {
           confirmationDate: startDate || new Date().toISOString().split('T')[0],
           progressPercent: progressPercent,
           milestones: {
-            advance40: { percent: 40, label: "40% Advance Payment", amount: advanceAmount, paid: advancePaid },
-            midway30: { percent: 30, label: "30% Milestone Payment", amount: midwayAmount, paid: midwayPaid },
-            handover30: { percent: 30, label: "30% Final Handover", amount: handoverAmount, paid: handoverPaid }
+            advance40: {
+              percent: isSocial ? 50 : 40,
+              label: isSocial ? "50% Advance Payment" : "40% Advance Payment",
+              amount: advanceAmount,
+              paid: advancePaid
+            },
+            midway30: {
+              percent: isSocial ? 0 : 30,
+              label: isSocial ? "N/A (50-50 Model)" : "30% Milestone Payment",
+              amount: midwayAmount,
+              paid: isSocial ? false : midwayPaid
+            },
+            handover30: {
+              percent: isSocial ? 50 : 30,
+              label: isSocial ? "50% Month-End Payment" : "30% Final Handover",
+              amount: handoverAmount,
+              paid: handoverPaid
+            },
+            model: isSocial ? "50-50" : "40-30-30"
           },
           totalPaid: totalPaid,
           dueAmount: dueAmount,
@@ -353,7 +374,7 @@ function doPost(e) {
       "Company Name", "Clients Name", "Company Type", "Project Type",
       "Start Date", "Target Deadline", "Worksheet",
       "Budget Estimated (" + currency + ")", "Budget Confirmed (" + currency + ")",
-      "Confirmation", "40% Advance", "30% (at 70%)", "30% Handover",
+      "Confirmation", "40% / 50% Advance", "30% (at 70%)", "30% / 50% Handover",
       "Total Paid (" + currency + ")", "Due (" + currency + ")",
       "Project Status", "Progress %", "Deployment", "Client Phone", "WhatsApp", "Client Email", "Notes"
     ];
