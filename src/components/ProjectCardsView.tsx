@@ -94,68 +94,77 @@ export const ProjectCardsView: React.FC<ProjectCardsViewProps> = ({
                 </div>
               </div>
 
-              {/* 40% - 30% - 30% Milestone Breakdown Box */}
-              <div className="bg-slate-850 rounded-lg p-2.5 border border-slate-800 my-3">
-                <div className="text-[11px] font-bold text-slate-400 mb-1.5 flex items-center justify-between">
-                  <span>Payment Milestones</span>
-                  <span className="text-[10px] text-slate-500 font-mono">40% - 30% - 30%</span>
-                </div>
-                
-                <div className="space-y-1.5 text-xs">
-                  {/* Milestone 1 */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-300">
-                      1. 40% Advance
-                    </span>
-                    <button
-                      onClick={() => onToggleMilestone(p.id, 'advance40')}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
-                        adv.paid 
-                          ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
-                          : 'bg-amber-950/70 text-amber-300 border-amber-700'
-                      }`}
-                    >
-                      {adv.paid ? `✓ ${formatMoney(adv.amount)}` : `Due: ${formatMoney(adv.amount)}`}
-                    </button>
-                  </div>
+              {/* Milestone Breakdown Box (50-50 for Social Media, 40-30-30 for others) */}
+              {(() => {
+                const isSocial = p.projectType === 'social-media-marketing' || p.milestones?.model === '50-50';
+                return (
+                  <div className="bg-slate-850 rounded-lg p-2.5 border border-slate-800 my-3">
+                    <div className="text-[11px] font-bold text-slate-400 mb-1.5 flex items-center justify-between">
+                      <span>Payment Milestones</span>
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {isSocial ? '50% - 50% Monthly' : '40% - 30% - 30%'}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-1.5 text-xs">
+                      {/* Milestone 1: Advance */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-300">
+                          {isSocial ? '1. 50% Advance' : '1. 40% Advance'}
+                        </span>
+                        <button
+                          onClick={() => onToggleMilestone(p.id, 'advance40')}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
+                            adv.paid 
+                              ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
+                              : 'bg-amber-950/70 text-amber-300 border-amber-700'
+                          }`}
+                        >
+                          {adv.paid ? `✓ ${formatMoney(adv.amount)}` : `Due: ${formatMoney(adv.amount)}`}
+                        </button>
+                      </div>
 
-                  {/* Milestone 2 */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-300">
-                      2. 30% (70% Work)
-                    </span>
-                    <button
-                      onClick={() => onToggleMilestone(p.id, 'midway30')}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
-                        mid.paid 
-                          ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
-                          : p.progressPercent >= 70
-                          ? 'bg-rose-950/80 text-rose-300 border-rose-700 font-extrabold animate-pulse'
-                          : 'bg-slate-800 text-slate-400 border-slate-700'
-                      }`}
-                    >
-                      {mid.paid ? `✓ ${formatMoney(mid.amount)}` : `Due: ${formatMoney(mid.amount)}`}
-                    </button>
-                  </div>
+                      {/* Milestone 2: 30% (Only for non-social media) */}
+                      {!isSocial && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-slate-300">
+                            2. 30% (70% Work)
+                          </span>
+                          <button
+                            onClick={() => onToggleMilestone(p.id, 'midway30')}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
+                              mid.paid 
+                                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
+                                : p.progressPercent >= 70
+                                ? 'bg-rose-950/80 text-rose-300 border-rose-700 font-extrabold animate-pulse'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}
+                          >
+                            {mid.paid ? `✓ ${formatMoney(mid.amount)}` : `Due: ${formatMoney(mid.amount)}`}
+                          </button>
+                        </div>
+                      )}
 
-                  {/* Milestone 3 */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-300">
-                      3. 30% Final Handover
-                    </span>
-                    <button
-                      onClick={() => onToggleMilestone(p.id, 'handover30')}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
-                        fin.paid 
-                          ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
-                          : 'bg-slate-800 text-slate-400 border-slate-700'
-                      }`}
-                    >
-                      {fin.paid ? `✓ ${formatMoney(fin.amount)}` : `Due: ${formatMoney(fin.amount)}`}
-                    </button>
+                      {/* Milestone 3: Handover or Month-End */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-300">
+                          {isSocial ? '2. 50% Month-End' : '3. 30% Final Handover'}
+                        </span>
+                        <button
+                          onClick={() => onToggleMilestone(p.id, 'handover30')}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer ${
+                            fin.paid 
+                              ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700' 
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                          }`}
+                        >
+                          {fin.paid ? `✓ ${formatMoney(fin.amount)}` : `Due: ${formatMoney(fin.amount)}`}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Financial Status Summary */}
               <div className="flex items-center justify-between text-xs px-2 py-1.5 bg-slate-850 rounded border border-slate-800 font-mono">
