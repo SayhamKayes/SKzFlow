@@ -29,7 +29,8 @@ import {
   Check, 
   Download, 
   ChevronDown, 
-  Copy 
+  Copy,
+  RefreshCw 
 } from 'lucide-react';
 
 interface ProjectTableViewProps {
@@ -39,6 +40,9 @@ interface ProjectTableViewProps {
   onSelectWorksheet?: (ws: string) => void;
   onAddWorksheet?: (name: string) => void;
   onOpenNewProject?: () => void;
+  onRefreshCloud?: () => void;
+  isRefreshingCloud?: boolean;
+  onDeleteWorksheet?: (name: string) => void;
   onEditProject: (project: Project) => void;
   onViewProject: (project: Project) => void;
   onDeleteProject: (projectId: string) => void;
@@ -75,6 +79,9 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
   onSelectWorksheet,
   onAddWorksheet,
   onOpenNewProject,
+  onRefreshCloud,
+  isRefreshingCloud,
+  onDeleteWorksheet,
   onEditProject,
   onViewProject,
   onDeleteProject,
@@ -127,24 +134,50 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
           <span className="text-[11px] text-slate-400 font-mono">
             ({projects.length} {projects.length === 1 ? 'record' : 'records'})
           </span>
+          {onRefreshCloud && (
+            <button
+              onClick={onRefreshCloud}
+              disabled={isRefreshingCloud}
+              className="p-1 rounded text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition cursor-pointer"
+              title="Refresh live data from Google Sheets central cloud database"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingCloud ? 'animate-spin text-emerald-400' : ''}`} />
+            </button>
+          )}
         </div>
 
         {/* Right side: Running Worksheet Indicator & Quick Switcher + New Month Action */}
         <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
           <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 shadow-xs">
-            <FileSpreadsheet className="w-3.5 h-3.5 text-amber-400" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-[11px] text-slate-400 font-medium">Worksheet:</span>
             
             {worksheets && onSelectWorksheet ? (
-              <select
-                value={activeWorksheet}
-                onChange={(e) => onSelectWorksheet(e.target.value)}
-                className="bg-slate-800 text-emerald-300 font-bold text-xs rounded px-2 py-0.5 border border-slate-700 cursor-pointer focus:outline-none"
-              >
-                {worksheets.map(ws => (
-                  <option key={ws} value={ws}>{ws}</option>
-                ))}
-              </select>
+              <div className="flex items-center space-x-1">
+                <select
+                  value={activeWorksheet}
+                  onChange={(e) => onSelectWorksheet(e.target.value)}
+                  className="bg-slate-800 text-emerald-300 font-bold text-xs rounded px-2 py-0.5 border border-slate-700 cursor-pointer focus:outline-none"
+                >
+                  {worksheets.map(ws => (
+                    <option key={ws} value={ws}>{ws}</option>
+                  ))}
+                </select>
+
+                {activeWorksheet !== 'All Worksheets' && onDeleteWorksheet && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete worksheet "${activeWorksheet}"? All project records in this worksheet will be preserved and reassigned.`)) {
+                        onDeleteWorksheet(activeWorksheet);
+                      }
+                    }}
+                    className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer"
+                    title={`Delete "${activeWorksheet}" Worksheet`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             ) : (
               <span className="font-bold text-emerald-400 text-xs font-mono">
                 {activeWorksheet}
@@ -260,7 +293,7 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
                     </>
                   ) : (
                     <>
-                      <Copy className="w-3.5 h-3.5 text-amber-400" />
+                      <Copy className="w-3.5 h-3.5 text-emerald-400" />
                       <div>
                         <div className="font-semibold">Copy for Google Sheets</div>
                         <div className="text-[10px] text-slate-400">Ctrl+V paste ready</div>
