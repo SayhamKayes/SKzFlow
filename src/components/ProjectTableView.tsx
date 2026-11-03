@@ -167,12 +167,12 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
                 {activeWorksheet !== 'All Worksheets' && onDeleteWorksheet && (
                   <button
                     onClick={() => {
-                      if (window.confirm(`Delete worksheet "${activeWorksheet}"? All project records in this worksheet will be preserved and reassigned.`)) {
+                      if (window.confirm(`Permanently delete worksheet "${activeWorksheet}" and all its records from Google Sheets?`)) {
                         onDeleteWorksheet(activeWorksheet);
                       }
                     }}
                     className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition cursor-pointer"
-                    title={`Delete "${activeWorksheet}" Worksheet`}
+                    title={`Delete "${activeWorksheet}" Worksheet and records permanently`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
