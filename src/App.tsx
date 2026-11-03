@@ -15,7 +15,10 @@ import {
   computeFinancials, 
   downloadProjectsCSV,
   loadAuthUser,
-  clearAuthUser 
+  clearAuthUser,
+  getTodayDateString,
+  formatLocalDate,
+  normalizeWorksheetName
 } from './utils/storage';
 import { 
   getEffectiveWebhookUrl, 
@@ -106,13 +109,14 @@ export default function App() {
 
         // Derive active worksheets list from cloud worksheets and loaded projects
         const projectWorksheets = Array.from(
-          new Set(res.projects.map(p => p.worksheet).filter(Boolean))
+          new Set(res.projects.map(p => normalizeWorksheetName(p.worksheet)).filter(Boolean))
         ) as string[];
         const currentMonth = getCurrentMonthWorksheet();
+        const rawWorksheetsList = (res.worksheets || []).map(w => normalizeWorksheetName(w));
         const mergedWorksheets = Array.from(
           new Set([
             'All Worksheets',
-            ...(res.worksheets || []),
+            ...rawWorksheetsList,
             ...projectWorksheets,
             currentMonth
           ])
@@ -126,6 +130,10 @@ export default function App() {
           if (current === 'All Worksheets') return current;
           const hasInCurrent = res.projects!.some(p => isWorksheetMatch(p, current));
           if (hasInCurrent) return current;
+          const wsWithProjects = projectWorksheets.find(w => res.projects!.some(p => isWorksheetMatch(p, w)));
+          if (wsWithProjects) {
+            return wsWithProjects;
+          }
           if (projectWorksheets.length > 0) {
             return projectWorksheets[0];
           }
@@ -308,7 +316,8 @@ export default function App() {
     const now = new Date();
 
     if (preset === 'today') {
-      return projectDate.toISOString().split('T')[0] === now.toISOString().split('T')[0];
+      const pDateClean = formatLocalDate(dateStr);
+      return pDateClean === getTodayDateString();
     }
 
     if (preset === 'this-week') {
@@ -342,14 +351,14 @@ export default function App() {
     return true;
   };
 
-  // Check if project matches worksheet filter (with whitespace/case normalization)
+  // Check if project matches worksheet filter (with whitespace/case/alias normalization)
   const isWorksheetMatch = (project: Project, ws: string): boolean => {
     if (ws === 'All Worksheets') return true;
     if (ws === 'Untitled Worksheet') {
       return !project.worksheet || project.worksheet === 'Untitled Worksheet';
     }
-    const pWs = String(project.worksheet || '').trim().toLowerCase();
-    const targetWs = String(ws || '').trim().toLowerCase();
+    const pWs = normalizeWorksheetName(project.worksheet).toLowerCase();
+    const targetWs = normalizeWorksheetName(ws).toLowerCase();
     return pWs === targetWs;
   };
 
@@ -483,7 +492,7 @@ export default function App() {
         [milestoneKey]: {
           ...currentMilestone,
           paid: willBePaid,
-          paidDate: willBePaid ? new Date().toISOString().split('T')[0] : undefined,
+          paidDate: willBePaid ? getTodayDateString() : undefined,
         }
       };
 
