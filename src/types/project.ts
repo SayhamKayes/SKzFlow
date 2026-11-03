@@ -100,9 +100,10 @@ export interface MilestoneItem {
 }
 
 export interface PaymentMilestones {
-  advance40: MilestoneItem; // 40% Advance on start
-  midway30: MilestoneItem;  // 30% when work reaches 70%
-  handover30: MilestoneItem;// 30% on Handover
+  advance40: MilestoneItem; // 40% Advance on start, or 50% for social-media-marketing
+  midway30: MilestoneItem;  // 30% when work reaches 70% (amount: 0, paid: false for 50-50)
+  handover30: MilestoneItem;// 30% on Handover, or 50% Month-End for social-media-marketing
+  model?: '40-30-30' | '50-50';
 }
 
 export interface Project {
