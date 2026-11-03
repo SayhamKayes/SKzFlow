@@ -42,6 +42,7 @@ interface GoogleSheetSyncModalProps {
   worksheets: string[];
   authUser?: AuthUser | null;
   onAuthChange?: (user: AuthUser | null) => void;
+  onRefreshCloud?: () => Promise<void> | void;
 }
 
 export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
@@ -50,7 +51,8 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   projects,
   worksheets,
   authUser: propAuthUser,
-  onAuthChange
+  onAuthChange,
+  onRefreshCloud
 }) => {
   if (!isOpen) return null;
 
@@ -70,7 +72,7 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
   const effectiveWebhook = webhookUrlInput.trim() || getEffectiveWebhookUrl();
   const effectiveSheetId = sheetIdInput.trim() || getEffectiveSheetId(authUser);
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     saveWebhookUrl(webhookUrlInput.trim());
     if (authUser && sheetIdInput.trim()) {
       const updatedUser: AuthUser = {
@@ -80,6 +82,9 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
       saveAuthUser(updatedUser);
       if (onAuthChange) onAuthChange(updatedUser);
     }
+    if (onRefreshCloud) {
+      await onRefreshCloud();
+    }
     setIsSavingSettings(true);
     setTimeout(() => setIsSavingSettings(false), 2000);
   };
@@ -88,6 +93,9 @@ export const GoogleSheetSyncModal: React.FC<GoogleSheetSyncModalProps> = ({
     setIsSyncing(true);
     setSyncStatusMsg(null);
     try {
+      if (onRefreshCloud) {
+        await onRefreshCloud();
+      }
       const result = await syncProjectsToGoogleSheets(projects, authUser);
       if (result.success) {
         setSyncStatusMsg({ type: 'success', text: result.message });
