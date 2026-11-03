@@ -396,6 +396,13 @@ export default function App() {
 
   // Handlers
   const handleSaveProject = (project: Project) => {
+    const projectWorksheet = project.worksheet || selectedWorksheet || getCurrentMonthWorksheet();
+
+    // Register worksheet if newly typed or not currently in worksheets list
+    if (projectWorksheet && !worksheets.includes(projectWorksheet)) {
+      setWorksheets(prev => [...prev, projectWorksheet]);
+    }
+
     setProjects(prev => {
       const exists = prev.some(p => p.id === project.id);
       if (exists) {
@@ -403,6 +410,11 @@ export default function App() {
       }
       return [project, ...prev];
     });
+
+    // Auto-switch view to saved project's worksheet so it is immediately visible
+    if (selectedWorksheet !== 'All Worksheets' && selectedWorksheet !== projectWorksheet) {
+      setSelectedWorksheet(projectWorksheet);
+    }
 
     if (viewingProject && viewingProject.id === project.id) {
       setViewingProject(project);
@@ -627,6 +639,7 @@ export default function App() {
         onSave={handleSaveProject}
         initialProject={editingProject}
         worksheets={worksheets}
+        activeWorksheet={selectedWorksheet}
       />
 
       {/* Filter & Period Analytics Modal */}
