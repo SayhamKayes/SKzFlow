@@ -103,7 +103,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setProgressPercent(initialProject.progressPercent ?? 0);
       setProjectStatus(initialProject.projectStatus);
       setDeployment(initialProject.deployment || '');
-      setDeploymentUrl(initialProject.deploymentUrl || '');
+      const initUrl = initialProject.deploymentUrl || '';
+      const isRealUrl = initUrl.startsWith('http://') || initUrl.startsWith('https://') || initUrl.includes('.');
+      setDeploymentUrl(isRealUrl ? initUrl : '');
       
       setClientPhone(initialProject.clientPhone || '');
       setClientWhatsapp(initialProject.clientWhatsapp || initialProject.clientPhone || '');
@@ -716,7 +718,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                     setProgressPercent(val);
                     if (val >= 100) setProjectStatus('Completed');
                     else if (val >= 70 && projectStatus !== 'Completed') setProjectStatus('70% Done');
-                    else if (val > 0 && projectStatus === 'Confirmed') setProjectStatus('In Progress');
+                    else if (val > 0 && (projectStatus === 'Confirmed' || projectStatus === 'Lead')) setProjectStatus('In Progress');
                   }}
                   className="w-full accent-emerald-500 cursor-pointer"
                 />
@@ -734,7 +736,17 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 </label>
                 <select
                   value={projectStatus}
-                  onChange={(e) => setProjectStatus(e.target.value as ProjectStatus)}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as ProjectStatus;
+                    setProjectStatus(newStatus);
+                    if (newStatus === 'Completed') {
+                      setProgressPercent(100);
+                    } else if (newStatus === '70% Done') {
+                      setProgressPercent(prev => Math.max(70, prev));
+                    } else if (newStatus === 'Confirmed' || newStatus === 'Lead') {
+                      if (progressPercent === 100) setProgressPercent(0);
+                    }
+                  }}
                   className="w-full px-3 py-1.5 text-xs sm:text-sm bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none"
                 >
                   <option value="Lead">Lead</option>
