@@ -14,6 +14,83 @@ export const getCurrentMonthWorksheet = (): string => {
   return `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
 };
 
+/**
+ * Returns today's date in local YYYY-MM-DD format (prevents UTC timezone shifting)
+ */
+export const getTodayDateString = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Safely formats any date input into a local YYYY-MM-DD string without timezone offset shifts
+ */
+export const formatLocalDate = (dateInput?: Date | string | null): string => {
+  if (!dateInput) return '';
+  if (dateInput instanceof Date) {
+    if (isNaN(dateInput.getTime())) return '';
+    const y = dateInput.getFullYear();
+    const m = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const d = String(dateInput.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const str = String(dateInput).trim();
+  const ymdMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (ymdMatch) {
+    const [, y, m, d] = ymdMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (slashMatch) {
+    const [, d, m, y] = slashMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return str;
+};
+
+/**
+ * Normalizes worksheet names to prevent timezone / Date-object parsing issues.
+ * Examples:
+ *   "Thu Oct 01 2026 00:00:00 GMT+0600 (Bangladesh Standard Time)" -> "October 2026"
+ *   "October 2026" -> "October 2026"
+ *   "All Worksheets" -> "All Worksheets"
+ */
+export const normalizeWorksheetName = (raw?: string | null): string => {
+  if (!raw) return 'General';
+  const str = String(raw).trim();
+  if (!str) return 'General';
+  if (str === 'All Worksheets' || str === 'General') return str;
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const strLower = str.toLowerCase();
+
+  for (const m of months) {
+    const mLower = m.toLowerCase();
+    const shortLower = mLower.substring(0, 3);
+    if (strLower.includes(mLower) || strLower.includes(shortLower)) {
+      const yearMatch = str.match(/\b(20\d\d)\b/);
+      if (yearMatch) {
+        return `${m} ${yearMatch[1]}`;
+      }
+    }
+  }
+
+  return str;
+};
+
 export const computeMilestones = (
   confirmedBudget: number,
   existingMilestones?: Partial<PaymentMilestones>,
@@ -679,7 +756,7 @@ export const downloadProjectsCSV = (projects: Project[]) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `Projects_${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute('download', `Projects_${getTodayDateString()}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -796,7 +873,7 @@ export const downloadProjectsExcel = (projects: Project[], prefix = 'Projects') 
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `${prefix}_${new Date().toISOString().split('T')[0]}.xls`);
+  link.setAttribute('download', `${prefix}_${getTodayDateString()}.xls`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
