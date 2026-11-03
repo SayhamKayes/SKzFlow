@@ -55,8 +55,8 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
               {sMeta.label}
             </span>
             {project.worksheet && (
-              <span className="px-2 py-0.5 rounded text-[11px] bg-slate-800 text-amber-300 border border-slate-700 flex items-center">
-                <FileSpreadsheet className="w-3 h-3 mr-1 text-amber-400" />
+              <span className="px-2 py-0.5 rounded text-[11px] bg-slate-800 text-emerald-300 border border-slate-700 flex items-center">
+                <FileSpreadsheet className="w-3 h-3 mr-1 text-emerald-400" />
                 {project.worksheet}
               </span>
             )}
@@ -170,10 +170,10 @@ export const ProjectDetailDrawer: React.FC<ProjectDetailDrawerProps> = ({
             </div>
             <div>
               <span className="text-slate-400 block mb-0.5 flex items-center">
-                <Calendar className="w-3 h-3 mr-1 text-amber-400" />
+                <Calendar className="w-3 h-3 mr-1 text-emerald-400" />
                 Target Deadline:
               </span>
-              <span className="font-bold text-amber-300 font-mono">
+              <span className="font-bold text-emerald-300 font-mono">
                 {project.targetDeadline || 'Not specified'}
               </span>
             </div>
